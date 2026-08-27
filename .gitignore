@@ -1,0 +1,58 @@
+# --- JavaScript / Frontend ---
+node_modules/
+dist/
+build/
+.eslintcache
+.stylelintcache
+
+# --- Secrets & Environment Variables ---
+# NEVER share these!
+.env
+.env.local
+.env.*.local
+
+# --- Local Databases & Sensitive Data ---
+*.db
+*.sqlite
+*.sqlite3
+backend/data/*.csv
+
+# --- Operating System Files ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Editor Specific ---
+.vscode/
+.idea/
+*.swp
+
+
+# ==========================================
+# .NET / C# (ASP.NET Core)
+# ==========================================
+# Build / Compilation outputs
+[Bb]in/
+[Oo]bj/
+out/
+
+# User-specific & IDE files
+*.user
+*.userosscache
+*.sln.docstates
+.vs/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.suo
+
+# Local configuration & app settings (Contains secrets/connection strings)
+appsettings.Development.json
+appsettings.Local.json
+appsettings.*.Local.json
+
+# Entity Framework Core tooling / local files
+*.db-shm
+*.db-wal
