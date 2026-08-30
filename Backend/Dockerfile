@@ -8,7 +8,7 @@ COPY Backend/*.sln ./Backend/
 # Copy project files
 COPY Backend/KymWantsAPI.Domain/*.csproj ./Backend/KymWantsAPI.Domain/
 COPY Backend/KymWantsAPI.Application/*.csproj ./Backend/KymWantsAPI.Application/
-COPY Backend/KymWantsAPI.Infrastucture/*.csproj ./Backend/KymWantsAPI.Infrastucture/
+COPY Backend/KymWantsAPI.Infrastructure/*.csproj ./Backend/KymWantsAPI.Infrastructure/
 COPY Backend/KymWantsAPI.Presentation/*.csproj ./Backend/KymWantsAPI.Presentation/
 
 # Restore using the exact solution file path from /src
