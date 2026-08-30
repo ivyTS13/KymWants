@@ -40,8 +40,8 @@ namespace KymWantsAPI.Infrastructure.DependencyInjection
             services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
             // 2. CORS
-            var allowedOrigins = config.GetSection("Frontend:RedirectUrl").Get<string[]>()
-                                 ?? new[] { "http://localhost:5173" }; // fallback
+            var allowedOrigins = config.GetSection("Frontend:AllowedOrigins").Get<string[]>()
+                      ?? new[] { "http://localhost:5173" }; // fallback only if missing
 
             services.AddCors(options =>
             {
