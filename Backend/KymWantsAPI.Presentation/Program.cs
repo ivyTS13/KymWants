@@ -20,6 +20,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowFrontendApps");
 app.UseHttpsRedirection();
+app.UseForwardedHeaders();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
