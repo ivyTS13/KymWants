@@ -18,16 +18,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
-
-// REQUIRED: Apply CORS before Authentication/Authorization
 app.UseCors("AllowFrontendApps");
-
-// REQUIRED: Enable Authentication & Rate Limiting in proper order
+app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
 
 app.MapControllers();
-
 app.Run();
