@@ -15,10 +15,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Controllers\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\KymWantsAPI.Infrastructure\KymWantsAPI.Infrastructure.csproj" />
   </ItemGroup>
 

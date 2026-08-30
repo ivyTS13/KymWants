@@ -1,5 +1,6 @@
 ﻿using KymWantsAPI.Application.Interfaces;
 using KymWantsAPI.Infrastructure.KymContext;
+using KymWantsAPI.Infrastructure.Repositories;
 using KymWantsAPI.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
@@ -28,7 +29,15 @@ namespace KymWantsAPI.Infrastructure.DependencyInjection
                 ));
 
             // Services DI
+            // Infrastructure & Cache
             services.AddScoped<ICacheService, RedisCacheService>();
+
+            // Repositories
+            services.AddScoped<IUserRepository,UserRepository>();
+
+            // Application Services
+            services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
             // 2. CORS
             services.AddCors(options =>
