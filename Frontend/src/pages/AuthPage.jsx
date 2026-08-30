@@ -22,7 +22,8 @@ export default function AuthPage({ initialMode = 'login' }) {
   };
 
   const handleGoogleSignIn = () => {
-    window.location.href = 'https://localhost:7037/api/Auth/signin-google';
+    const url =import.meta.env.VITE_API_URL || "https://localhost:7037"
+    window.location.href = url+"/api/Auth/signin-google";
   };
 
   const handleSubmit = async (e) => {

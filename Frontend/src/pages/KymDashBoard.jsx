@@ -4,7 +4,7 @@ import useUserStore from '../store/useUserStore';
 import apiClient from '../api/axios';
 import { PATHS } from '../router/AppRoutes';
 
-export default function Dashboard() {
+export default function KymDashboard() {
   const user = useUserStore((state) => state.user);
   const clearUser = useUserStore((state) => state.clearUser);
   const navigate = useNavigate();

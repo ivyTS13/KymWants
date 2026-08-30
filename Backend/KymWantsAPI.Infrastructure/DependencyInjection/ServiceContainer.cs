@@ -40,17 +40,17 @@ namespace KymWantsAPI.Infrastructure.DependencyInjection
             services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
             // 2. CORS
+            var allowedOrigins = config.GetSection("Frontend:RedirectUrl").Get<string[]>()
+                                 ?? new[] { "http://localhost:5173" }; // fallback
+
             services.AddCors(options =>
             {
                 options.AddPolicy("AllowFrontendApps", policy =>
                 {
-                    policy.WithOrigins(
-                            "https://torooto.onrender.com",
-                            "http://localhost:5173"
-                        )
-                        .AllowAnyHeader()
-                        .AllowAnyMethod()
-                        .AllowCredentials(); // Essential for HttpOnly cookies
+                    policy.WithOrigins(allowedOrigins)
+                          .AllowAnyHeader()
+                          .AllowAnyMethod()
+                          .AllowCredentials(); // Essential for HttpOnly cookies
                 });
             });
 

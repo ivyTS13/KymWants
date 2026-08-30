@@ -15,11 +15,13 @@ namespace KymWantsAPI.Presentation.Controllers
     {
         private readonly IAuthService _authService;
         private readonly ILogger<AuthController> _logger;
+        private readonly IConfiguration _configuration;
 
-        public AuthController(IAuthService authService, ILogger<AuthController> logger)
+        public AuthController(IAuthService authService, ILogger<AuthController> logger, IConfiguration configuration)
         {
             _authService = authService;
             _logger = logger;
+            _configuration = configuration;
         }
 
         [HttpPost("register")]
@@ -111,7 +113,13 @@ namespace KymWantsAPI.Presentation.Controllers
                 SetTokenCookie(token);
 
                 _logger.LogInformation("Google Auth completed successfully. Redirecting to frontend.");
-                return Redirect("http://localhost:5173");
+                var frontendUrl = _configuration["Frontend:RedirectUrl"];
+                if (string.IsNullOrEmpty(frontendUrl))
+                {
+                    _logger.LogError("FrontendUrl configuration is missing.");
+                    return StatusCode(500, "Server configuration error.");
+                }
+                return Redirect(frontendUrl);
             }
             catch (Exception ex)
             {
