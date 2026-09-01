@@ -3,7 +3,6 @@ using KymWantsAPI.Infrastructure.KymContext;
 using KymWantsAPI.Infrastructure.Repositories;
 using KymWantsAPI.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -12,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using Resend;
 using StackExchange.Redis;
 using System.Text;
 using System.Threading.RateLimiting;
@@ -32,13 +32,19 @@ namespace KymWantsAPI.Infrastructure.DependencyInjection
             // Services DI
             // Infrastructure & Cache
             services.AddScoped<ICacheService, RedisCacheService>();
-
+            services.AddScoped<IImageStorageService, ImageKitStorageService>();
             // Repositories
             services.AddScoped<IUserRepository,UserRepository>();
-
+            services.AddScoped<IDishRepository, DishRepository>();
+            services.AddScoped<ICollectionRepository, CollectionRepository>();
+            services.AddScoped<ICategoryRepository, CategoryRepository>();
             // Application Services
+            services.AddScoped<IDishService, DishService>();
             services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<ICollectionService, CollectionService>();
+            services.AddScoped<IUserService, UserService>();
             services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+            services.AddScoped<IEmailService,ResendEmailService>();
 
             // 2. CORS
             var allowedOrigins = config.GetSection("Frontend:AllowedOrigins").Get<string[]>()
@@ -138,6 +144,13 @@ namespace KymWantsAPI.Infrastructure.DependencyInjection
                 options.ForwardedHeaders =
                     ForwardedHeaders.XForwardedFor |
                     ForwardedHeaders.XForwardedProto;
+            });
+
+
+            /// 7. Resend Email
+            services.AddResend(options =>
+            {
+                options.ApiToken = config["Resend:ApiKey"]!;
             });
             return services;
         }

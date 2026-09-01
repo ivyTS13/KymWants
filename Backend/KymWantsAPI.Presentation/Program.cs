@@ -1,3 +1,4 @@
+using Microsoft.OpenApi.Models;
 using KymWantsAPI.Application.Services;
 using KymWantsAPI.Infrastructure.DependencyInjection;
 
@@ -8,22 +9,62 @@ builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureService(builder.Configuration);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+// 1. Configure Swagger Generator to declare Cookie Authentication
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "KymWantsAPI",
+        Version = "v1"
+    });
+
+    // Define Cookie Security Scheme (e.g. for HttpOnly session/JWT cookie)
+    options.AddSecurityDefinition("cookieAuth", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.ApiKey,
+        In = ParameterLocation.Cookie,
+        Name = "access_token", // Change this to your exact cookie name (e.g., "jwt", "session_id")
+        Description = "Cookie-based authentication"
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "cookieAuth"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+
+    // 2. Enable withCredentials in Swagger UI so cookies are sent with requests
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "KymWantsAPI v1");
+        options.ConfigObject.AdditionalItems["withCredentials"] = true;
+    });
 }
 
-app.UseCors("AllowFrontendApps");
-app.UseHttpsRedirection();
 app.UseForwardedHeaders();
+app.UseHttpsRedirection();
+app.UseCors("AllowFrontendApps");
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
 
+// Note: Removed the duplicated app.MapControllers();
 app.MapControllers();
 app.Run();

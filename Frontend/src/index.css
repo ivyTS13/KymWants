@@ -6,3 +6,9 @@
   --color-earth-rust: #ba6a4c;
   --color-earth-maroon: #7b2525;
 }
+
+@keyframes float {
+  0%, 100% { opacity: 0; transform: translateY(0) scale(0.8); }
+  20%, 80% { opacity: 1; transform: translateY(-20px) scale(1); }
+  50% { transform: translateY(-35px) scale(1.1); }
+}

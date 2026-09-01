@@ -12,7 +12,9 @@ namespace KymWantsAPI.Application.Mappings
         {
             config.NewConfig<User, UserReadDto>().IgnoreNullValues(true);
             config.NewConfig<User, UserCreateDto>().IgnoreNullValues(true);
-            config.NewConfig<User, UserUpdateDto>().IgnoreNullValues(true);
-        }
+            config.NewConfig<UserUpdateDto, User>()
+                              .IgnoreNullValues(true)
+                              .Ignore(dest => dest.ProfileImageUrl);
+    }
     }
 }

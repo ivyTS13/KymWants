@@ -168,5 +168,49 @@ namespace KymWantsAPI.Presentation.Controllers
             };
             Response.Cookies.Append("access_token", token, cookieOptions);
         }
+
+        [Authorize]
+        [HttpPost("change-password")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
+        {
+            try
+            {
+                var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
+                            ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Email)?.Value;
+                if (string.IsNullOrEmpty(email))
+                {
+                    _logger.LogWarning("Unauthorized 'me' request: Email claim missing from token.");
+                    return Unauthorized(new { message = "Invalid token claims." });
+                }
+                await _authService.ChangePasswordAsync(email, dto);
+                return Ok(new { message = "Password updated successfully." });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
+        {
+            // Always return Ok so attackers can't guess registered emails
+            await _authService.ForgotPasswordAsync(dto);
+            return Ok(new { message = "If the email is registered, a password reset link has been sent." });
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
+        {
+            try
+            {
+                await _authService.ResetPasswordAsync(dto);
+                return Ok(new { message = "Password has been successfully reset." });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 }
