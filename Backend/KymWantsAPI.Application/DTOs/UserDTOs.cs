@@ -1,5 +1,7 @@
 ﻿
 
+using Microsoft.AspNetCore.Http;
+
 namespace KymWantsAPI.Application.DTOs
 {
     public record UserReadDto(
@@ -19,11 +21,25 @@ namespace KymWantsAPI.Application.DTOs
 
     public record UserUpdateDto(
         string DisplayName,
-        string? ProfileImageUrl
+        IFormFile? ProfileImage
     );
 
     public record UserLoginDto(
         string Email,
         string Password);
+
+    public record ChangePasswordDto(
+    string OldPassword,
+    string NewPassword
+);
+
+    public record ForgotPasswordDto(
+        string Email
+    );
+
+    public record ResetPasswordDto(
+        string Token,
+        string NewPassword
+    );
 }
 

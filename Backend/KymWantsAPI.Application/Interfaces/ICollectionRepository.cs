@@ -6,8 +6,8 @@ namespace KymWantsAPI.Application.Interfaces
     {
         Task<List<Collection>> GetAllSharedAsync();
         Task<Collection?> GetByIdAsync(Guid id);
-        Task<Collection> CreateAsync(Collection collection, List<Guid> dishIds);
-        Task UpdateAsync(Collection collection, List<Guid> dishIds);
+        Task<Collection> CreateAsync(Collection collection);
+        Task UpdateAsync(Collection collection);
         Task DeleteAsync(Guid id);
         Task<List<Collection>> GetAllByUserAsync(Guid userId);
     }

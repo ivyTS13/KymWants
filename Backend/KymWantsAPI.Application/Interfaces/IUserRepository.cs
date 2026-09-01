@@ -10,5 +10,6 @@ namespace KymWantsAPI.Application.Interfaces
         Task<User?> GetByGoogleIdAsync(string googleId);
         Task<User> CreateAsync(User user);
         Task UpdateAsync(User user);
+        Task<User?> GetByResetTokenAsync(string token);
     }
 }
