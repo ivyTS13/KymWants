@@ -75,6 +75,17 @@ namespace KymWantsAPI.Infrastructure.KymContext
                 .WithMany(d => d.CollectionDishes)
                 .HasForeignKey(cd => cd.DishId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+
+            // 4. SEED DATA FOR CATEGORIES
+            modelBuilder.Entity<Category>().HasData(
+                new Category { Id = 1, Name = "Main Course" },
+                new Category { Id = 2, Name = "Appetizer" },
+                new Category { Id = 3, Name = "Dessert" },
+                new Category { Id = 4, Name = "Beverage" },
+                new Category { Id = 5, Name = "Snack" },
+                new Category { Id = 6, Name = "Side Dish" }
+            );
         }
     }
 }

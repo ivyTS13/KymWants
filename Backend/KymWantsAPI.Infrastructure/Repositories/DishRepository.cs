@@ -1,33 +1,66 @@
 ﻿using KymWantsAPI.Application.Interfaces;
 using KymWantsAPI.Domain.Models;
+using KymWantsAPI.Infrastructure.KymContext;
+using Microsoft.EntityFrameworkCore;
 
 namespace KymWantsAPI.Infrastructure.Repositories
 {
     public class DishRepository : IDishRepository
     {
-        public Task<Dish> CreateAsync(Dish dish)
+        private readonly KymWantsDBContext _context;
+
+        public DishRepository(KymWantsDBContext context)
         {
-            throw new NotImplementedException();
+            _context = context;
         }
 
-        public Task DeleteAsync(Guid id)
+        public async Task<Dish?> GetByIdAsync(Guid id)
         {
-            throw new NotImplementedException();
+            return await _context.Dishes
+                .Include(d => d.Category)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(d => d.Id == id);
         }
 
-        public Task<List<Dish>> GetAllAsync()
+        public async Task<List<Dish>> GetByCollectionIdAsync(Guid collectionId)
         {
-            throw new NotImplementedException();
+            return await _context.Dishes
+                .Where(d => d.CollectionDishes.Any(cd => cd.CollectionId == collectionId))
+                .Include(d => d.Category)
+                .AsNoTracking()
+                .ToListAsync();
         }
 
-        public Task<Dish?> GetByIdAsync(Guid id)
+        public async Task<Dish> CreateAsync(Dish dish, Guid collectionId)
         {
-            throw new NotImplementedException();
+            _context.Dishes.Add(dish);
+
+            // Link to collection via junction table
+            var collectionDish = new CollectionDish
+            {
+                CollectionId = collectionId,
+                DishId = dish.Id
+            };
+            _context.CollectionDishes.Add(collectionDish);
+
+            await _context.SaveChangesAsync();
+            return dish;
         }
 
-        public Task UpdateAsync(Dish dish)
+        public async Task UpdateAsync(Dish dish)
         {
-            throw new NotImplementedException();
+            _context.Dishes.Update(dish);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task DeleteAsync(Guid id)
+        {
+            var dish = await _context.Dishes.FindAsync(id);
+            if (dish != null)
+            {
+                _context.Dishes.Remove(dish);
+                await _context.SaveChangesAsync();
+            }
         }
     }
 }

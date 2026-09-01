@@ -3,6 +3,7 @@ using System;
 using KymWantsAPI.Infrastructure.KymContext;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace KymWantsAPI.Infrastructure.Migrations
 {
     [DbContext(typeof(KymWantsDBContext))]
-    partial class KymWantsDBContextModelSnapshot : ModelSnapshot
+    [Migration("20260831125307_UpdateCategoryIdAndSeedCategories")]
+    partial class UpdateCategoryIdAndSeedCategories
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -196,15 +199,6 @@ namespace KymWantsAPI.Infrastructure.Migrations
                     b.Property<string>("ProfileImageUrl")
                         .HasColumnType("character varying")
                         .HasColumnName("profile_image_url");
-
-                    b.Property<string>("ResetPasswordToken")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("reset_password_token");
-
-                    b.Property<DateTime?>("ResetPasswordTokenExpiry")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("reset_password_token_expiry");
 
                     b.HasKey("Id");
 

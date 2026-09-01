@@ -1,12 +1,14 @@
 import axios from 'axios';
 
 // 1. Create a configured Axios instance
+const baseURL = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : 'https://localhost:7037/api';
+
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://localhost:7037/api',
-  withCredentials: true, // MANDATORY: Instructs browser to include HttpOnly cookies
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  baseURL,
+  withCredentials: true,
+  headers: { 'Content-Type': 'application/json' },
 });
 
 // 2. Response Interceptor for Global Error Handling

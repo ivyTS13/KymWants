@@ -6,12 +6,17 @@ namespace KymWantsAPI.Application.DTOs
        Guid Id,
        string Name,
        bool IsShared,
-       Guid UserName
+       string UserName,
+       List<DishResponseDto> Dishes
        );
 
     public record CreateCollectionDto(
     string Name,
-    bool? IsShared,
-    List<Guid>? DishIds
-);
+    bool? IsShared
+       );
+
+    public record UpdateCollectionDto(
+    string Name,
+    bool? IsShared
+       );
 }

@@ -38,6 +38,13 @@ namespace KymWantsAPI.Domain.Models
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+        [Column("reset_password_token")]
+        [StringLength(255)]
+        public string? ResetPasswordToken { get; set; }
+
+        [Column("reset_password_token_expiry")]
+        public DateTime? ResetPasswordTokenExpiry { get; set; }
+
         [InverseProperty("User")]
         public ICollection<Collection> Collections { get; set; } = new List<Collection>();
     }
