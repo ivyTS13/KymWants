@@ -16,16 +16,14 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
+    const requestUrl = error.config?.url; // <--- Safely extract the request URL
 
     if (status === 401) {
-     if (requestUrl !== '/Auth/me') {
-        
-        // Define public paths that shouldn't trigger forced redirects
+      if (requestUrl && !requestUrl.includes('/Auth/me')) {
         const publicPaths = ['/login', '/register', '/forgot', '/reset-password'];
         const currentPath = window.location.pathname;
 
-        // If they are not on a public page, kick them to login
-        if (!publicPaths.some(path => currentPath.startsWith(path))) {
+        if (!publicPaths.some((path) => currentPath.startsWith(path))) {
           window.location.href = '/login';
         }
       }

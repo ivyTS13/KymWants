@@ -16,8 +16,7 @@ import PizzaIcon from "../assets/Snacks/Pizza";
 export default function AuthPage({ initialMode = "login" }) {
   const isLogin = initialMode === "login";
   const navigate = useNavigate();
-  // Replace the old setUser line with this:
-  const checkAuth = useUserStore((state) => state.checkAuth);
+  const setUser = useUserStore((state) => state.setUser); // Zustand hook
   const [isAppleMobile, setIsAppleMobile] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
@@ -53,33 +52,43 @@ export default function AuthPage({ initialMode = "login" }) {
     setLoading(true);
 
     try {
+      let response;
       if (isLogin) {
-        await apiClient.post("/Auth/login", {
+        response = await apiClient.post("/Auth/login", {
           email: formData.email,
           password: formData.password,
         });
       } else {
-        await apiClient.post("/Auth/register", {
+        response = await apiClient.post("/Auth/register", {
           email: formData.email,
           password: formData.password,
           displayName: formData.displayName,
         });
       }
 
-      // The cookie is now set. Call /Auth/me via the store to populate the user state.
-      await checkAuth();
+      // Update Zustand store (assuming the API returns user data like { id, email, displayName })
+      // If your API just returns { message: "Success" }, you might need to call a /me endpoint here first.
+      setUser(response.data.user || { email: formData.email });
 
       navigate(PATHS.DASHBOARD);
-    } catch (err) {
-      setError(
-        err.response?.data?.message || "An error occurred. Please try again.",
-      );
-    } finally {
+  } catch (err) {
+  // 1. Log the full error to inspect what Axios is actually receiving
+  console.log("Axios Error Response:", err.response);
+
+  // 2. Extract error message safely regardless of payload shape
+  const serverError = 
+    typeof err.response?.data === "string" 
+      ? err.response.data 
+      : err.response?.data?.message || err.response?.data?.title;
+
+  setError(serverError || "An error occurred. Please try again.");
+}finally {
       setLoading(false);
     }
   };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-earth-green p-4 font-sans text-earth-maroon">
+    <div className="min-h-[100dvh] flex items-center justify-center bg-earth-green p-4 font-sans text-earth-maroon">
       <div className="w-full max-w-md bg-earth-beige border border-earth-rust/20 rounded-xl p-6 sm:p-8 shadow-2xl">
         {/* Header */}
         <div className="text-center mb-6">
@@ -89,7 +98,7 @@ export default function AuthPage({ initialMode = "login" }) {
           <h2 className="text-xl sm:text-2xl font-bold mb-1">
             {isLogin ? "Log in to KymWants" : "Create your account"}
           </h2>
-          <p className="text-base sm:text-sm text-earth-maroon/70">
+          <p className="text-sm text-earth-maroon/70">
             {isLogin
               ? "Welcome back! Please enter your details."
               : "Start managing your collections today."}
@@ -98,7 +107,7 @@ export default function AuthPage({ initialMode = "login" }) {
 
         {/* Error Alert */}
         {error && (
-          <div className="bg-earth-maroon/10 border border-earth-maroon text-earth-maroon px-3 py-2 rounded-md text-base sm:text-sm mb-5 text-center font-medium">
+          <div className="bg-earth-maroon/10 border border-earth-maroon text-earth-maroon px-3 py-2 rounded-md text-sm mb-5 text-center font-medium">
             {error}
           </div>
         )}
@@ -108,7 +117,7 @@ export default function AuthPage({ initialMode = "login" }) {
             <button
               type="button"
               onClick={handleGoogleSignIn}
-              className="w-full flex items-center justify-center gap-3 bg-white text-earth-maroon px-4 py-2.5 rounded-md text-base sm:text-sm font-semibold hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-earth-rust focus:ring-offset-2 focus:ring-offset-earth-beige shadow-sm"
+              className="w-full flex items-center justify-center gap-3 bg-white text-earth-maroon px-4 py-2.5 rounded-md text-sm font-semibold hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-earth-rust focus:ring-offset-2 focus:ring-offset-earth-beige shadow-sm"
             >
               <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24">
                 <path
@@ -155,7 +164,7 @@ export default function AuthPage({ initialMode = "login" }) {
                 placeholder="John Doe"
                 value={formData.displayName}
                 onChange={handleChange}
-                className="w-full bg-white border border-earth-rust/40 rounded-md px-3 py-2 text-base sm:text-sm text-earth-maroon placeholder:text-earth-maroon/40 focus:outline-none focus:border-earth-rust focus:ring-1 focus:ring-earth-rust transition-shadow"
+                className="w-full bg-white border border-earth-rust/40 rounded-md px-3 py-2 text-sm text-earth-maroon placeholder:text-earth-maroon/40 focus:outline-none focus:border-earth-rust focus:ring-1 focus:ring-earth-rust transition-shadow"
               />
             </div>
           )}
@@ -171,7 +180,7 @@ export default function AuthPage({ initialMode = "login" }) {
               placeholder="name@example.com"
               value={formData.email}
               onChange={handleChange}
-              className="w-full bg-white border border-earth-rust/40 rounded-md px-3 py-2 text-base sm:text-sm text-earth-maroon placeholder:text-earth-maroon/40 focus:outline-none focus:border-earth-rust focus:ring-1 focus:ring-earth-rust transition-shadow"
+              className="w-full bg-white border border-earth-rust/40 rounded-md px-3 py-2 text-sm text-earth-maroon placeholder:text-earth-maroon/40 focus:outline-none focus:border-earth-rust focus:ring-1 focus:ring-earth-rust transition-shadow"
             />
           </div>
 
@@ -196,21 +205,21 @@ export default function AuthPage({ initialMode = "login" }) {
               placeholder="••••••••"
               value={formData.password}
               onChange={handleChange}
-              className="w-full bg-white border border-earth-rust/40 rounded-md px-3 py-2 text-base sm:text-sm text-earth-maroon placeholder:text-earth-maroon/40 focus:outline-none focus:border-earth-rust focus:ring-1 focus:ring-earth-rust transition-shadow"
+              className="w-full bg-white border border-earth-rust/40 rounded-md px-3 py-2 text-sm text-earth-maroon placeholder:text-earth-maroon/40 focus:outline-none focus:border-earth-rust focus:ring-1 focus:ring-earth-rust transition-shadow"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-earth-rust text-earth-beige px-4 py-2.5 rounded-md text-base sm:text-sm font-bold hover:bg-earth-maroon transition-colors mt-2 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-earth-rust focus:ring-offset-2 focus:ring-offset-earth-beige"
+            className="w-full bg-earth-rust text-earth-beige px-4 py-2.5 rounded-md text-sm font-bold hover:bg-earth-maroon transition-colors mt-2 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-earth-rust focus:ring-offset-2 focus:ring-offset-earth-beige"
           >
             {loading ? "Processing..." : isLogin ? "Log in" : "Create account"}
           </button>
         </form>
 
         {/* Footer */}
-        <div className="mt-6 text-center text-base sm:text-sm text-earth-maroon/70">
+        <div className="mt-6 text-center text-sm text-earth-maroon/70">
           {isLogin ? (
             <p>
               Don't have an account?{" "}
@@ -272,7 +281,7 @@ export default function AuthPage({ initialMode = "login" }) {
           >
             <FriesIcon width={42} height={42} />
           </div>
-          <div
+           <div
             className="absolute left-[50%] top-[95%]"
             style={{ animation: "float 3.5s ease-in-out 1.5s infinite" }}
           >
