@@ -2,6 +2,7 @@
 using KymWantsAPI.Infrastructure.KymContext;
 using KymWantsAPI.Infrastructure.Repositories;
 using KymWantsAPI.Infrastructure.Services;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -73,6 +74,23 @@ namespace KymWantsAPI.Infrastructure.DependencyInjection
             {
                 options.ClientId = config["Authentication:Google:ClientId"]!;
                 options.ClientSecret = config["Authentication:Google:ClientSecret"]!;
+                // Ensure profile scope is requested
+                options.Scope.Add("profile");
+                options.Scope.Add("email");
+
+                // Map the picture claim explicitly from Google's JSON response
+                options.ClaimActions.MapJsonKey("picture", "picture");
+
+                options.Events.OnRemoteFailure = context =>
+                {
+                    // Suppress the exception that crashes the app
+                    context.HandleResponse();
+
+                    // Redirect to YOUR controller's callback endpoint, passing the error
+                    context.Response.Redirect("/api/Auth/google-callback?error=access_denied");
+
+                    return Task.CompletedTask;
+                };
             })
             .AddJwtBearer(options =>
             {

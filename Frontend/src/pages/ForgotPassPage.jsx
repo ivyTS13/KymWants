@@ -49,19 +49,19 @@ export default function ForgotPasswordPage() {
           <h2 className="text-xl sm:text-2xl font-bold mb-1">
             Reset your password
           </h2>
-          <p className="text-sm text-earth-maroon/70">
+          <p className="text-base sm:text-sm text-earth-maroon/70">
             Enter your email and we’ll send you a reset link.
           </p>
         </div>
 
         {error && (
-          <div className="bg-earth-maroon/10 border border-earth-maroon text-earth-maroon px-3 py-2 rounded-md text-sm mb-5 text-center font-medium">
+          <div className="bg-earth-maroon/10 border border-earth-maroon text-earth-maroon px-3 py-2 rounded-md text-base sm:text-sm mb-5 text-center font-medium">
             {error}
           </div>
         )}
 
         {message && (
-          <div className="bg-earth-rust/10 border border-earth-rust text-earth-rust px-3 py-2 rounded-md text-sm mb-5 text-center font-medium">
+          <div className="bg-earth-rust/10 border border-earth-rust text-earth-rust px-3 py-2 rounded-md text-base sm:text-sm mb-5 text-center font-medium">
             {message}
           </div>
         )}
@@ -78,20 +78,20 @@ export default function ForgotPasswordPage() {
               placeholder="name@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-white border border-earth-rust/40 rounded-md px-3 py-2 text-sm text-earth-maroon placeholder:text-earth-maroon/40 focus:outline-none focus:border-earth-rust focus:ring-1 focus:ring-earth-rust transition-shadow"
+              className="w-full bg-white border border-earth-rust/40 rounded-md px-3 py-2 text-base sm:text-sm text-earth-maroon placeholder:text-earth-maroon/40 focus:outline-none focus:border-earth-rust focus:ring-1 focus:ring-earth-rust transition-shadow"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-earth-rust text-earth-beige px-4 py-2.5 rounded-md text-sm font-bold hover:bg-earth-maroon transition-colors mt-2 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-earth-rust focus:ring-offset-2 focus:ring-offset-earth-beige"
+            className="w-full bg-earth-rust text-earth-beige px-4 py-2.5 rounded-md text-base sm:text-sm font-bold hover:bg-earth-maroon transition-colors mt-2 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-earth-rust focus:ring-offset-2 focus:ring-offset-earth-beige"
           >
             {loading ? "Sending..." : "Send reset link"}
           </button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-earth-maroon/70">
+        <div className="mt-6 text-center text-base sm:text-sm text-earth-maroon/70">
           <Link
             to={PATHS.LOGIN}
             className="text-earth-rust font-bold hover:text-earth-maroon transition-colors"
