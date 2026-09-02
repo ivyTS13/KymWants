@@ -36,9 +36,7 @@ export default function Layout({ children }) {
     }
   };
 
-  const initial = (user?.displayName || user?.email || "U")
-    .charAt(0)
-    .toUpperCase();
+  const initial = (user?.displayName || "U").charAt(0).toUpperCase();
 
   return (
     <div className="min-h-screen flex flex-col bg-earth-beige text-earth-maroon font-sans">
@@ -48,7 +46,10 @@ export default function Layout({ children }) {
         <div className="px-3 sm:px-5 lg:px-6">
           <div className="flex items-center justify-between h-16">
             {/* Left: Logo + App name */}
-            <Link to={PATHS.DASHBOARD} className="flex items-center gap-2 sm:gap-3">
+            <Link
+              to={PATHS.DASHBOARD}
+              className="flex items-center gap-2 sm:gap-3"
+            >
               <BobaLogo width={36} height={36} />
               <span className="text-earth-beige font-bold text-lg sm:text-xl tracking-wide">
                 KymWants
@@ -61,11 +62,20 @@ export default function Layout({ children }) {
                 <div className="relative" ref={dropdownRef}>
                   <button
                     onClick={() => setDropdownOpen(!dropdownOpen)}
-                    className="w-10 h-10 rounded-full bg-earth-rust hover:bg-earth-maroon text-earth-beige font-bold text-lg flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-earth-maroon focus:ring-offset-2 focus:ring-offset-earth-green"
+                    className="w-10 h-10 rounded-full bg-earth-rust hover:bg-earth-maroon text-earth-beige font-bold text-lg flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-earth-maroon focus:ring-offset-2 focus:ring-offset-earth-green overflow-hidden"
                     aria-haspopup="true"
                     aria-expanded={dropdownOpen}
                   >
-                    {initial}
+                    {user?.profileImageUrl ? (
+                      <img
+                        src={user.profileImageUrl}
+                        alt={`${user.displayName}'s profile`}
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer" /* Crucial for Google image URLs to prevent 403 errors */
+                      />
+                    ) : (
+                      initial
+                    )}
                   </button>
 
                   {/* Dropdown menu */}
@@ -73,7 +83,7 @@ export default function Layout({ children }) {
                     <div className="absolute right-0 mt-2 w-48 bg-white border border-earth-rust/30 rounded-md shadow-lg py-1 z-50">
                       <div className="px-4 py-2 border-b border-earth-rust/20">
                         <p className="text-sm font-semibold text-earth-maroon truncate">
-                          {user?.displayName || user?.email || "User"}
+                          {user?.displayName || "User"}
                         </p>
                         {user?.email && (
                           <p className="text-xs text-earth-maroon/70 truncate">

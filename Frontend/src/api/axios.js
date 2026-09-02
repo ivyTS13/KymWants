@@ -18,9 +18,16 @@ apiClient.interceptors.response.use(
     const status = error.response?.status;
 
     if (status === 401) {
-      // Redirect to login if user session expired or cookie missing
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+     if (requestUrl !== '/Auth/me') {
+        
+        // Define public paths that shouldn't trigger forced redirects
+        const publicPaths = ['/login', '/register', '/forgot', '/reset-password'];
+        const currentPath = window.location.pathname;
+
+        // If they are not on a public page, kick them to login
+        if (!publicPaths.some(path => currentPath.startsWith(path))) {
+          window.location.href = '/login';
+        }
       }
     }
 

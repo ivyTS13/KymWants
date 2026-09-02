@@ -2,10 +2,12 @@
 using KymWantsAPI.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 
 namespace KymWantsAPI.Presentation.Controllers
 {
+    [EnableRateLimiting("StandardLimit")]
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
