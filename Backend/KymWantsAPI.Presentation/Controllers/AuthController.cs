@@ -212,8 +212,7 @@ namespace KymWantsAPI.Presentation.Controllers
             {
                 HttpOnly = true,
                 Secure = true,
-                SameSite = SameSiteMode.Lax,
-                Domain = ".onrender.com",
+                SameSite = SameSiteMode.None,
                 Expires = DateTime.UtcNow.AddHours(2)
             };
             Response.Cookies.Append("access_token", token, cookieOptions);

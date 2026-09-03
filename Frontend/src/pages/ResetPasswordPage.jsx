@@ -15,7 +15,7 @@ import PizzaIcon from "../assets/Snacks/Pizza";
 export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  
+
   // Extract token from the URL (e.g., ?token=fM9YdiGb...)
   const token = searchParams.get("token");
 
@@ -44,22 +44,23 @@ export default function ResetPasswordPage() {
 
     try {
       // Matches your backend: public record ResetPasswordDto(string Token, string NewPassword);
-      await apiClient.post("/Auth/reset-password", { 
-        token, 
-        newPassword 
+      await apiClient.post("/Auth/reset-password", {
+        token,
+        newPassword,
       });
-      
-      setMessage("Password has been successfully reset. Redirecting to login...");
-      
+
+      setMessage(
+        "Password has been successfully reset. Redirecting to login...",
+      );
+
       // Redirect to login after a brief delay
       setTimeout(() => {
         navigate(PATHS.LOGIN);
       }, 2500);
-
     } catch (err) {
       setError(
         err.response?.data?.message ||
-        "Failed to reset password. The token may be invalid or expired."
+          "Failed to reset password. The token may be invalid or expired.",
       );
     } finally {
       setLoading(false);
@@ -71,9 +72,17 @@ export default function ResetPasswordPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-earth-green p-4 font-sans">
         <div className="w-full max-w-md bg-earth-beige border border-earth-rust/20 rounded-xl p-6 text-center shadow-2xl">
-          <h2 className="text-xl font-bold text-earth-maroon mb-4">Invalid Link</h2>
-          <p className="text-earth-maroon/70 mb-6">No reset token was found in the URL. Please request a new password reset link.</p>
-          <Link to="/forgot-password" className="text-earth-rust font-bold hover:underline">
+          <h2 className="text-xl font-bold text-earth-maroon mb-4">
+            Invalid Link
+          </h2>
+          <p className="text-earth-maroon/70 mb-6">
+            No reset token was found in the URL. Please request a new password
+            reset link.
+          </p>
+          <Link
+            to="/forgot-password"
+            className="text-earth-rust font-bold hover:underline"
+          >
             Request new link
           </Link>
         </div>
@@ -146,59 +155,59 @@ export default function ResetPasswordPage() {
           </button>
         </form>
       </div>
-      
-     <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div
-              className="absolute left-[10%] top-[20%]"
-              style={{ animation: "float 6s ease-in-out infinite" }}
-            >
-              <DonutIcon width={40} height={40} />
-            </div>
-            <div
-              className="absolute left-[80%] top-[10%]"
-              style={{ animation: "float 7s ease-in-out 1s infinite" }}
-            >
-              <CupcakeIcon width={35} height={35} />
-            </div>
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-              <div
-                className="absolute left-[5%] top-[15%]"
-                style={{ animation: "float 6s ease-in-out infinite" }}
-              >
-                <IceCreamIcon width={40} height={40} />
-              </div>
-              <div
-                className="absolute left-[75%] top-[30%]"
-                style={{ animation: "float 4s ease-in-out 1s infinite" }}
-              >
-                <CoffeeIcon width={35} height={35} />
-              </div>
-              <div
-                className="absolute left-[20%] top-[90%]"
-                style={{ animation: "float 8s ease-in-out 0.5s infinite" }}
-              >
-                <SodaIcon width={38} height={38} />
-              </div>
-              <div
-                className="absolute left-[70%] top-[85%]"
-                style={{ animation: "float 6.5s ease-in-out 1.5s infinite" }}
-              >
-                <FriesIcon width={42} height={42} />
-              </div>
-              <div
-                className="absolute left-[50%] top-[95%]"
-                style={{ animation: "float 3.5s ease-in-out 1.5s infinite" }}
-              >
-                <PizzaIcon width={42} height={42} />
-              </div>
-              <div
-                className="absolute left-[45%] top-[5%]"
-                style={{ animation: "float 7.5s ease-in-out 0.8s infinite" }}
-              >
-                <CookieIcon width={36} height={36} />
-              </div>
-            </div>
+
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div
+          className="absolute left-[10%] top-[20%]"
+          style={{ animation: "float 6s ease-in-out infinite" }}
+        >
+          <DonutIcon width={40} height={40} />
+        </div>
+        <div
+          className="absolute left-[80%] top-[10%]"
+          style={{ animation: "float 7s ease-in-out 1s infinite" }}
+        >
+          <CupcakeIcon width={35} height={35} />
+        </div>
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div
+            className="absolute left-[5%] top-[15%]"
+            style={{ animation: "float 6s ease-in-out infinite" }}
+          >
+            <IceCreamIcon width={40} height={40} />
           </div>
+          <div
+            className="absolute left-[75%] top-[30%]"
+            style={{ animation: "float 4s ease-in-out 1s infinite" }}
+          >
+            <CoffeeIcon width={35} height={35} />
+          </div>
+          <div
+            className="absolute left-[20%] top-[90%]"
+            style={{ animation: "float 8s ease-in-out 0.5s infinite" }}
+          >
+            <SodaIcon width={38} height={38} />
+          </div>
+          <div
+            className="absolute left-[70%] top-[85%]"
+            style={{ animation: "float 6.5s ease-in-out 1.5s infinite" }}
+          >
+            <FriesIcon width={42} height={42} />
+          </div>
+          <div
+            className="absolute left-[50%] top-[95%]"
+            style={{ animation: "float 3.5s ease-in-out 1.5s infinite" }}
+          >
+            <PizzaIcon width={42} height={42} />
+          </div>
+          <div
+            className="absolute left-[45%] top-[5%]"
+            style={{ animation: "float 7.5s ease-in-out 0.8s infinite" }}
+          >
+            <CookieIcon width={36} height={36} />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

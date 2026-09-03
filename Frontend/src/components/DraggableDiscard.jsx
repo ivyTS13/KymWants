@@ -4,7 +4,7 @@ import { useDraggable } from "@dnd-kit/core";
 function DraggableDishCard({ dish, isSelected, onToggle }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: dish.id,
-    data: { dish },
+    data: {type: 'dish', dish },
   });
 
   return (
@@ -15,9 +15,10 @@ function DraggableDishCard({ dish, isSelected, onToggle }) {
       onClick={() => {
         if (!isDragging) onToggle(dish);
       }}
-      className={`relative aspect-square rounded-xl overflow-hidden cursor-pointer select-none transition-all duration-200 border ${
+      // Added 'touch-none' to prevent mobile browser scrolling from canceling the drag
+      className={`relative aspect-square rounded-xl overflow-hidden cursor-pointer select-none touch-none transition-all duration-200 border ${
         isDragging
-          ? "opacity-40 scale-95 border-dashed border-earth-rust bg-earth-beige"
+          ? "opacity-40 scale-95 border-dashed border-earth-rust bg-earth-beige z-50"
           : isSelected
             ? "ring-2 ring-earth-rust shadow-md scale-[0.98] border-earth-rust"
             : "bg-white border-earth-rust/20 shadow-sm hover:shadow-md hover:border-earth-rust/50"
@@ -48,7 +49,6 @@ function DraggableDishCard({ dish, isSelected, onToggle }) {
 
       {/* Item info */}
       <div className="absolute bottom-0 left-0 right-0 p-2 pointer-events-none flex flex-col gap-0.5">
-       
         {dish.name && (
           <span className="self-start text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.2 rounded bg-earth-beige/80 text-earth-maroon">
             {dish.name}

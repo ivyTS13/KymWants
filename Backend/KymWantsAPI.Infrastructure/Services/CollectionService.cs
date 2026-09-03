@@ -48,10 +48,10 @@ namespace KymWantsAPI.Infrastructure.Services
                 // Attempt to fetch from cache
                 try
                 {
-                    var cachedCollections = await _cacheService.GetAsync<List<Collection>>(cacheKey);
+                    var cachedCollections = await _cacheService.GetAsync<List<CollectionResponseDto>>(cacheKey);
                     if (cachedCollections != null)
                     {
-                        return _mapper.Map<List<CollectionResponseDto>>(cachedCollections);
+                        return cachedCollections;
                     }
                 }
                 catch (Exception ex)
@@ -61,18 +61,18 @@ namespace KymWantsAPI.Infrastructure.Services
                 }
 
                 var collections = await _collectionRepository.GetAllByUserAsync(userId);
-
+                var response = _mapper.Map<List<CollectionResponseDto>>(collections);
                 // Attempt to update cache
                 try
                 {
-                    await _cacheService.SetAsync(cacheKey, collections, absoluteExpireTime: TimeSpan.FromHours(2));
+                    await _cacheService.SetAsync(cacheKey, response, absoluteExpireTime: TimeSpan.FromHours(2));
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Failed to set cache for key '{CacheKey}'.", cacheKey);
                 }
 
-                return _mapper.Map<List<CollectionResponseDto>>(collections);
+                return response;
             }
             catch (Exception ex)
             {
@@ -119,7 +119,7 @@ namespace KymWantsAPI.Infrastructure.Services
                 var result = await _collectionRepository.GetByIdAsync(created.Id);
 
                 // Invalidate user collection cache upon creation
-                await InvalidateUserCacheAsync(userId);
+                await _cacheService.InvalidateUserCacheAsync(userId);
 
                 return _mapper.Map<CollectionResponseDto>(result!);
             }
@@ -155,7 +155,7 @@ namespace KymWantsAPI.Infrastructure.Services
                 await _collectionRepository.UpdateAsync(collection);
 
                 // Invalidate user collection cache upon mutation
-                await InvalidateUserCacheAsync(userId);
+                await _cacheService.InvalidateUserCacheAsync(userId);
 
                 return _mapper.Map<CollectionResponseDto>(collection);
             }
@@ -185,7 +185,7 @@ namespace KymWantsAPI.Infrastructure.Services
                 await _collectionRepository.DeleteAsync(id);
 
                 // Invalidate user collection cache upon deletion
-                await InvalidateUserCacheAsync(userId);
+                await _cacheService.InvalidateUserCacheAsync(userId);
             }
             catch (Exception ex) when (ex is not KeyNotFoundException && ex is not UnauthorizedAccessException)
             {
@@ -194,17 +194,6 @@ namespace KymWantsAPI.Infrastructure.Services
             }
         }
 
-        private async Task InvalidateUserCacheAsync(Guid userId)
-        {
-            try
-            {
-                string cacheKey = $"collection_{userId}";
-                await _cacheService.RemoveAsync(cacheKey);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to invalidate cache for user {UserId}.", userId);
-            }
-        }
+       
     }
 }
