@@ -79,6 +79,7 @@ namespace KymWantsAPI.Infrastructure.DependencyInjection
             {
                 options.ClientId = config["Authentication:Google:ClientId"]!;
                 options.ClientSecret = config["Authentication:Google:ClientSecret"]!;
+                options.CallbackPath = "/api/signin-google";
                 options.Scope.Add("profile");
                 options.Scope.Add("email");
 
