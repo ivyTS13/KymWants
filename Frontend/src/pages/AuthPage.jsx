@@ -16,8 +16,6 @@ import PizzaIcon from "../assets/Snacks/Pizza";
 export default function AuthPage({ initialMode = "login" }) {
   const isLogin = initialMode === "login";
   const navigate = useNavigate();
-  const setUser = useUserStore((state) => state.setUser); // Zustand hook
-  const [isAppleMobile, setIsAppleMobile] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -25,18 +23,7 @@ export default function AuthPage({ initialMode = "login" }) {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    // Detect iPhone, iPad, or iPod
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const isIOS = /iphone|ipad|ipod/.test(userAgent);
-
-    // Apple sometimes masks newer iPads as Mac desktops, so we check for touch points
-    const isMaskedPad =
-      navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
-
-    setIsAppleMobile(isIOS || isMaskedPad);
-  }, []);
+const checkAuth = useUserStore((state) => state.checkAuth);
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -66,9 +53,7 @@ export default function AuthPage({ initialMode = "login" }) {
         });
       }
 
-      // Update Zustand store (assuming the API returns user data like { id, email, displayName })
-      // If your API just returns { message: "Success" }, you might need to call a /me endpoint here first.
-      setUser(response.data.user || { email: formData.email });
+      await checkAuth();   
 
       navigate(PATHS.DASHBOARD);
   } catch (err) {
@@ -111,7 +96,6 @@ export default function AuthPage({ initialMode = "login" }) {
             {error}
           </div>
         )}
-        {!isAppleMobile && (
           <>
             {/* Google Button */}
             <button
@@ -149,7 +133,6 @@ export default function AuthPage({ initialMode = "login" }) {
               <div className="flex-1 h-px bg-earth-rust/30"></div>
             </div>
           </>
-        )}
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {!isLogin && (
