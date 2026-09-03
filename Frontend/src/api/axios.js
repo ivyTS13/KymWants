@@ -16,11 +16,16 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
+    const requestUrl = error.config?.url; // <--- Safely extract the request URL
 
     if (status === 401) {
-      // Redirect to login if user session expired or cookie missing
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+      if (requestUrl && !requestUrl.includes('/Auth/me')) {
+        const publicPaths = ['/login', '/register', '/forgot', '/reset-password'];
+        const currentPath = window.location.pathname;
+
+        if (!publicPaths.some((path) => currentPath.startsWith(path))) {
+          window.location.href = '/login';
+        }
       }
     }
 

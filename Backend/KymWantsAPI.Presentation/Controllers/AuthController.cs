@@ -4,11 +4,16 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 
 namespace KymWantsAPI.Presentation.Controllers
 {
+    [EnableRateLimiting("StandardLimit")]
     [ApiController]
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
@@ -50,7 +55,6 @@ namespace KymWantsAPI.Presentation.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                // Warning is already logged in the service layer, but we can log the HTTP result here
                 _logger.LogWarning("Returning 401 Unauthorized for login request.");
                 return Unauthorized(new { message = ex.Message });
             }
@@ -81,27 +85,61 @@ namespace KymWantsAPI.Presentation.Controllers
         }
 
         [HttpGet("google-callback")]
-        public async Task<IActionResult> GoogleCallback()
+        public async Task<IActionResult> GoogleCallback([FromQuery] string? error, [FromQuery] string? error_description)
         {
+            var frontendUrl = _configuration["Frontend:RedirectUrl"];
+
+            // 1. Handle user cancellation or refusal from Google
+            if (!string.IsNullOrEmpty(error))
+            {
+                _logger.LogWarning("Google OAuth access was denied or canceled. Error: {Error}, Description: {Description}", error, error_description);
+
+                // Sign out of the temporary external cookie scheme to clear state
+                await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
+                // Ensure no access token cookie remains
+                Response.Cookies.Delete("access_token");
+
+                if (!string.IsNullOrEmpty(frontendUrl))
+                {
+                    return Redirect($"{frontendUrl}?error=access_denied");
+                }
+                return BadRequest(new { message = "Google authentication was canceled or denied." });
+            }
+
             _logger.LogInformation("Received Google OAuth callback.");
 
             var result = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
 
-            if (!result.Succeeded)
+            if (!result.Succeeded || result.Principal == null)
             {
                 _logger.LogError("Google authentication failed at the provider level.");
+
+                await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+                Response.Cookies.Delete("access_token");
+
+                if (!string.IsNullOrEmpty(frontendUrl))
+                {
+                    return Redirect($"{frontendUrl}?error=auth_failed");
+                }
                 return BadRequest("Google authentication failed.");
             }
 
+            // 2. Extract Claims
             var claims = result.Principal.Identities.FirstOrDefault()?.Claims;
             var email = claims?.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
             var name = claims?.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
             var googleId = claims?.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
-            var profilePicture = claims?.FirstOrDefault(c => c.Type == "image" || c.Type == "urn:google:picture")?.Value;
+
+            var profilePicture = claims?.FirstOrDefault(c =>
+                c.Type == "picture" ||
+                c.Type == "urn:google:picture" ||
+                c.Type == "image")?.Value;
 
             if (email == null || googleId == null)
             {
                 _logger.LogError("Google callback succeeded but required claims (Email/GoogleId) were missing.");
+                await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
                 return BadRequest("Failed to retrieve required claims from Google.");
             }
 
@@ -109,11 +147,14 @@ namespace KymWantsAPI.Presentation.Controllers
             {
                 var token = await _authService.GoogleLoginAsync(email, name ?? "User", googleId, profilePicture);
 
+                // Clear the temporary authentication cookie created during OAuth flow
                 await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
+                // Set the actual JWT token cookie ONLY on success
                 SetTokenCookie(token);
 
                 _logger.LogInformation("Google Auth completed successfully. Redirecting to frontend.");
-                var frontendUrl = _configuration["Frontend:RedirectUrl"];
+
                 if (string.IsNullOrEmpty(frontendUrl))
                 {
                     _logger.LogError("FrontendUrl configuration is missing.");
@@ -124,16 +165,23 @@ namespace KymWantsAPI.Presentation.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while processing Google login data.");
+
+                await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+                Response.Cookies.Delete("access_token");
+
+                if (!string.IsNullOrEmpty(frontendUrl))
+                {
+                    return Redirect($"{frontendUrl}?error=server_error");
+                }
                 return StatusCode(500, "An internal error occurred during Google authentication.");
             }
         }
         [HttpGet("me")]
-        [Authorize] // Requires a valid JWT token/cookie
+        [Authorize]
         public async Task<IActionResult> GetMe()
         {
             try
             {
-                // Extract the email claim from the validated token context
                 var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
                             ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Email)?.Value;
 
@@ -157,6 +205,7 @@ namespace KymWantsAPI.Presentation.Controllers
                 return StatusCode(500, "An internal error occurred.");
             }
         }
+
         private void SetTokenCookie(string token)
         {
             var cookieOptions = new CookieOptions
@@ -194,7 +243,6 @@ namespace KymWantsAPI.Presentation.Controllers
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
         {
-            // Always return Ok so attackers can't guess registered emails
             await _authService.ForgotPasswordAsync(dto);
             return Ok(new { message = "If the email is registered, a password reset link has been sent." });
         }

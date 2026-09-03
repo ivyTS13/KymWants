@@ -8,6 +8,7 @@ namespace KymWantsAPI.Application.Interfaces
         Task SetAsync<T>(string key, T data, TimeSpan? absoluteExpireTime = null, TimeSpan? slidingExpireTime = null);
         Task RemoveAsync(string key);
         Task RemoveByPatternAsync(string pattern);
+        Task InvalidateUserCacheAsync(Guid userId);
 
     }
 }

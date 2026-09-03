@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import apiClient from "../api/axios";
 import { PATHS } from "../router/AppRoutes";
 import CuteGirlAvatar from "../components/BobaLogo";
@@ -11,8 +11,16 @@ import SodaIcon from "../assets/Snacks/SodaCup";
 import FriesIcon from "../assets/Snacks/FrenchFries";
 import CookieIcon from "../assets/Snacks/Cookies";
 import PizzaIcon from "../assets/Snacks/Pizza";
-export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState("");
+
+export default function ResetPasswordPage() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  // Extract token from the URL (e.g., ?token=fM9YdiGb...)
+  const token = searchParams.get("token");
+
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -21,36 +29,79 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setError("");
     setMessage("");
+
+    if (!token) {
+      setError("Invalid or missing reset token.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await apiClient.post("/Auth/forgot-password", { email });
-      // Backend always returns OK, even if email not found (to prevent enumeration)
+      // Matches your backend: public record ResetPasswordDto(string Token, string NewPassword);
+      await apiClient.post("/Auth/reset-password", {
+        token,
+        newPassword,
+      });
+
       setMessage(
-        "If the email is registered, a password reset link has been sent.",
+        "Password has been successfully reset. Redirecting to login...",
       );
+
+      // Redirect to login after a brief delay
+      setTimeout(() => {
+        navigate(PATHS.LOGIN);
+      }, 2500);
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          "Something went wrong. Please try again.",
+          "Failed to reset password. The token may be invalid or expired.",
       );
     } finally {
       setLoading(false);
     }
   };
 
+  // If there's no token in the URL, immediately show an error
+  if (!token) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-earth-green p-4 font-sans">
+        <div className="w-full max-w-md bg-earth-beige border border-earth-rust/20 rounded-xl p-6 text-center shadow-2xl">
+          <h2 className="text-xl font-bold text-earth-maroon mb-4">
+            Invalid Link
+          </h2>
+          <p className="text-earth-maroon/70 mb-6">
+            No reset token was found in the URL. Please request a new password
+            reset link.
+          </p>
+          <Link
+            to="/forgot-password"
+            className="text-earth-rust font-bold hover:underline"
+          >
+            Request new link
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-earth-green p-4 font-sans text-earth-maroon">
-      <div className="w-full max-w-md bg-earth-beige border border-earth-rust/20 rounded-xl p-6 sm:p-8 shadow-2xl">
+      <div className="w-full max-w-md bg-earth-beige border border-earth-rust/20 rounded-xl p-6 sm:p-8 shadow-2xl z-10">
         <div className="text-center mb-6">
           <div className="w-20 h-20 rounded-full bg-earth-rust flex items-center justify-center mb-4 mx-auto shadow-md">
             <CuteGirlAvatar width={64} height={64} />
           </div>
           <h2 className="text-xl sm:text-2xl font-bold mb-1">
-            Reset your password
+            Create new password
           </h2>
           <p className="text-base sm:text-sm text-earth-maroon/70">
-            Enter your email and we’ll send you a reset link.
+            Please enter your new password below.
           </p>
         </div>
 
@@ -69,37 +120,42 @@ export default function ForgotPasswordPage() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold text-earth-maroon">
-              Email address
+              New Password
             </label>
             <input
-              type="email"
-              name="email"
+              type="password"
               required
-              placeholder="name@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-white border border-earth-rust/40 rounded-md px-3 py-2 text-base sm:text-sm text-earth-maroon placeholder:text-earth-maroon/40 focus:outline-none focus:border-earth-rust focus:ring-1 focus:ring-earth-rust transition-shadow"
+              minLength={6}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full bg-white border border-earth-rust/40 rounded-md px-3 py-2 text-base sm:text-sm text-earth-maroon focus:outline-none focus:border-earth-rust focus:ring-1 focus:ring-earth-rust"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-earth-maroon">
+              Confirm Password
+            </label>
+            <input
+              type="password"
+              required
+              minLength={6}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full bg-white border border-earth-rust/40 rounded-md px-3 py-2 text-base sm:text-sm text-earth-maroon focus:outline-none focus:border-earth-rust focus:ring-1 focus:ring-earth-rust"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-earth-rust text-earth-beige px-4 py-2.5 rounded-md text-base sm:text-sm font-bold hover:bg-earth-maroon transition-colors mt-2 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-earth-rust focus:ring-offset-2 focus:ring-offset-earth-beige"
+            className="w-full bg-earth-rust text-earth-beige px-4 py-2.5 rounded-md text-base sm:text-sm font-bold hover:bg-earth-maroon transition-colors mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? "Sending..." : "Send reset link"}
+            {loading ? "Resetting..." : "Reset Password"}
           </button>
         </form>
-
-        <div className="mt-6 text-center text-base sm:text-sm text-earth-maroon/70">
-          <Link
-            to={PATHS.LOGIN}
-            className="text-earth-rust font-bold hover:text-earth-maroon transition-colors"
-          >
-            Back to login
-          </Link>
-        </div>
       </div>
+
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
           className="absolute left-[10%] top-[20%]"
