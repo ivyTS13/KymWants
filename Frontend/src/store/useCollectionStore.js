@@ -4,7 +4,7 @@ import apiClient from "../api/axios";
 const useCollectionStore = create((set, get) => ({
   sharedCollections: [],
   myCollections: [],
-  activeTab: "shared",
+  activeTab: "my",
   selectedCollection: null,
   wheelDishes: [],
   isLoading: false,
@@ -23,7 +23,7 @@ const useCollectionStore = create((set, get) => ({
     }),
 
   clearSelection: () => set({ selectedCollection: null, wheelDishes: [] }),
-
+  setWheelDishes: (dishes) => set({ wheelDishes: dishes }),
   toggleWheelDish: (dish) => {
     const currentDishes = get().wheelDishes;
     const isSelected = currentDishes.some((d) => d.id === dish.id);
@@ -159,7 +159,43 @@ const useCollectionStore = create((set, get) => ({
       set({ isUpdatingDishLoading: false });
     }
   },
+updateCollection: async (collectionId, newName) => {
+    try {
+      const response = await apiClient.put(`/Collections/${collectionId}`, {
+        name: newName,
+        isShared: false
+      });
+      
+      const updatedCollection = response.data;
+      
+      // Update in lists
+      set((state) => ({
+        myCollections: state.myCollections.map((c) => 
+          c.id === collectionId ? { ...c, name: updatedCollection.name } : c
+        ),
+        // If it's the currently viewed collection, update its title too
+        selectedCollection: state.selectedCollection?.id === collectionId 
+          ? { ...state.selectedCollection, name: updatedCollection.name } 
+          : state.selectedCollection
+      }));
+    } catch (error) {
+      console.error("Failed to update collection", error);
+    }
+  },
 
+  deleteCollection: async (collectionId) => {
+    try {
+      await apiClient.delete(`/Collections/${collectionId}`);
+      
+      set((state) => ({
+        myCollections: state.myCollections.filter((c) => c.id !== collectionId),
+        // If we deleted the one we are looking at, go back to the list
+        selectedCollection: state.selectedCollection?.id === collectionId ? null : state.selectedCollection,
+      }));
+    } catch (error) {
+      console.error("Failed to delete collection", error);
+    }
+  },
   deleteDish: async (dishId) => {
     set({ isDeletingDishLoading: true });
     try {

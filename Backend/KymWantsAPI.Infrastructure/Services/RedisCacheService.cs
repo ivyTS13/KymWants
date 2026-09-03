@@ -97,5 +97,17 @@ namespace KymWantsAPI.Infrastructure.Services
                 _logger.LogWarning(ex, "Redis Cache RemoveByPattern Failed for pattern {Pattern}", pattern);
             }
         }
+        public async Task InvalidateUserCacheAsync(Guid userId)
+        {
+            try
+            {
+                string cacheKey = $"collection_{userId}";
+                await RemoveAsync(cacheKey);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to invalidate cache for user {UserId}.", userId);
+            }
+        }
     }
 }

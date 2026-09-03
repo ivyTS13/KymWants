@@ -92,7 +92,7 @@ export default function Layout({ children }) {
                         )}
                       </div>
                       <Link
-                        to={PATHS.PROFILE || PATHS.DASHBOARD}
+                        to={PATHS.PROFILEPAGE || PATHS.DASHBOARD}
                         className="block px-4 py-2 text-sm text-earth-maroon hover:bg-earth-rust/10 transition-colors"
                         onClick={() => setDropdownOpen(false)}
                       >

@@ -8,13 +8,15 @@ import NotFoundPage from "../pages/NotFoundPage";
 import KymDashboard from "../pages/KymDashBoard";
 import ForgotPasswordPage from "../pages/ForgotPassPage";
 import ResetPasswordPage from "../pages/ResetPasswordPage";
+import ProfilePage from "../pages/ProfilePage";
 
 export const PATHS = {
   LOGIN: "/login",
   REGISTER: "/register",
   FORGOTPASS:"/forgot",
   DASHBOARD: "/dashboard",
-  RESETPASSWORD:"/reset-password"
+  RESETPASSWORD:"/reset-password",
+  PROFILEPAGE:"/profile"
 };
 
 export default function AppRoutes() {
@@ -89,6 +91,7 @@ export default function AppRoutes() {
         {/* Protected Routes - Everything inside here requires authentication */}
         <Route element={<ProtectedRoute />}>
           <Route path={PATHS.DASHBOARD} element={<KymDashboard />} />
+          <Route path={PATHS.PROFILEPAGE} element={<ProfilePage />} />
           {/* Add more protected routes here like /settings, /profile */}
         </Route>
 

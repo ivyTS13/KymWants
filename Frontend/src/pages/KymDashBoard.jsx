@@ -15,6 +15,8 @@ import FortuneWheel from "../components/FortuneWheel";
 import DishModal from "../components/DishModal";
 import DraggableDishCard from "../components/DraggableDiscard";
 import DropZone from "../components/DropZone";
+import DraggableCollectionItem from "../components/DraggableCollectionItem";
+import CollectionModal from "../components/CollectionModal";
 
 export default function KymDashboard() {
   const { isAuthenticated } = useUserStore();
@@ -27,8 +29,10 @@ export default function KymDashboard() {
     clearSelection,
     fetchMyCollections,
     createCollection,
+    deleteCollection,
     wheelDishes,
     toggleWheelDish,
+    setWheelDishes,
     isLoading,
     isCreatingDishLoading,
     isDeletingDishLoading,
@@ -43,6 +47,9 @@ export default function KymDashboard() {
   const [dishToDelete, setDishToDelete] = useState(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [activeDragId, setActiveDragId] = useState(null);
+  const [isCollectionModalOpen, setIsCollectionModalOpen] = useState(false);
+  const [editingCollection, setEditingCollection] = useState(null);
+  const [collectionToDelete, setCollectionToDelete] = useState(null);
 
   // Custom Tab State
   const [customText, setCustomText] = useState("");
@@ -53,24 +60,40 @@ export default function KymDashboard() {
 
   // Winner Popup state
   const [winnerPopupDish, setWinnerPopupDish] = useState(null);
+  const [activeDragType, setActiveDragType] = useState(null);
 
   const activeDragDish = activeDragId
     ? selectedCollection?.dishes?.find((d) => d.id === activeDragId) ||
       customDishes.find((d) => d.id === activeDragId)
     : null;
 
+  const activeDragCollection =
+    activeDragId && activeDragType === "collection"
+      ? myCollections.find((c) => `col-${c.id}` === activeDragId)
+      : null;
+
+  // Smart visibility check: true if dragging a standard dish OR a collection
+  const isDropZoneVisible =
+    (activeDragType === "dish" && activeDragDish && !activeDragDish.isCustom) ||
+    (activeDragType === "collection" && activeDragCollection);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } })
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 8 },
+    }),
   );
 
   useEffect(() => {
-    if (isAuthenticated) fetchMyCollections();
-    // Default to 'custom' if the store initially sets it to 'shared'
-    if (activeTab === "shared") setActiveTab("custom");
-  }, [isAuthenticated, fetchMyCollections, activeTab, setActiveTab]);
+    if (isAuthenticated && myCollections.length === 0) {
+      fetchMyCollections();
+    }
+  }, [isAuthenticated, fetchMyCollections, myCollections.length]);
 
-  const selectedDishIds = useMemo(() => new Set(wheelDishes.map((d) => d.id)), [wheelDishes]);
+  const selectedDishIds = useMemo(
+    () => new Set(wheelDishes.map((d) => d.id)),
+    [wheelDishes],
+  );
 
   const handleCreateCollection = useCallback(
     (e) => {
@@ -81,7 +104,7 @@ export default function KymDashboard() {
         setIsCreatingCollection(false);
       }
     },
-    [newCollectionName, createCollection]
+    [newCollectionName, createCollection],
   );
 
   const handleGenerateCustomList = useCallback(() => {
@@ -110,18 +133,31 @@ export default function KymDashboard() {
     setIsDishModalOpen(true);
   }, []);
 
-  const handleDragStart = (event) => setActiveDragId(event.active.id);
+  const handleDragStart = (event) => {
+    setActiveDragId(event.active.id);
+    setActiveDragType(event.active.data.current?.type);
+  };
 
   const handleDragEnd = (event) => {
     const { active, over } = event;
     setActiveDragId(null);
+    setActiveDragType(null);
 
-    if (over && active) {
-      const dish = active.data.current?.dish;
-      if (dish && !dish.isCustom) {
+    if (over && active.data.current) {
+      const { type, dish, collection } = active.data.current;
+
+      if (type === "dish" && !dish.isCustom) {
         if (over.id === "edit-drop") openEditDishModal(dish);
         else if (over.id === "delete-drop") {
           setDishToDelete(dish);
+          setIsDeleteConfirmOpen(true);
+        }
+      } else if (type === "collection") {
+        if (over.id === "edit-drop") {
+          setEditingCollection(collection);
+          setIsCollectionModalOpen(true);
+        } else if (over.id === "delete-drop") {
+          setCollectionToDelete(collection);
           setIsDeleteConfirmOpen(true);
         }
       }
@@ -132,8 +168,11 @@ export default function KymDashboard() {
     if (dishToDelete) {
       await deleteDish(dishToDelete.id);
       setDishToDelete(null);
-      setIsDeleteConfirmOpen(false);
+    } else if (collectionToDelete) {
+      await deleteCollection(collectionToDelete.id);
+      setCollectionToDelete(null);
     }
+    setIsDeleteConfirmOpen(false);
   };
 
   return (
@@ -143,7 +182,10 @@ export default function KymDashboard() {
         collisionDetection={pointerWithin}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
-        onDragCancel={() => setActiveDragId(null)}
+        onDragCancel={() => {
+          setActiveDragId(null);
+          setActiveDragType(null);
+        }}
       >
         {/* Mobile View Toggle Bar */}
         <div className="flex lg:hidden mb-3 bg-earth-green/20 p-1 rounded-xl border border-earth-rust/30">
@@ -171,7 +213,6 @@ export default function KymDashboard() {
 
         {/* Main Dashboard Container */}
         <div className="flex flex-col lg:flex-row h-[calc(100vh-8.5vmax)] lg:h-[calc(100vh-7rem)] bg-white border border-earth-rust/30 rounded-2xl shadow-xl overflow-hidden font-sans text-earth-maroon">
-          
           {/* Sidebar / Inventory Area */}
           <div
             className={`w-full lg:w-5/12 xl:w-4/12 bg-earth-beige/40 border-r border-earth-rust/20 flex flex-col h-full ${
@@ -204,8 +245,28 @@ export default function KymDashboard() {
 
             {/* Scrollable Sidebar Content Area */}
             <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+              {/* Single Universal Drop Zone Bar */}
+              <div
+                className={`flex gap-2 transition-all duration-200 overflow-hidden shrink-0 ${
+                  isDropZoneVisible
+                    ? "h-16 opacity-100 mb-1"
+                    : "h-0 opacity-0 mb-0"
+                }`}
+              >
+                <DropZone id="edit-drop" type="edit">
+                  <span className="text-xs font-bold text-earth-maroon">
+                    🔧 Edit
+                  </span>
+                </DropZone>
+                <DropZone id="delete-drop" type="delete">
+                  <span className="text-xs font-bold text-red-700">
+                    🗑️ Trash
+                  </span>
+                </DropZone>
+              </div>
+
               {activeTab === "custom" ? (
-                // --- CUSTOM MENU VIEW ---
+                /* CUSTOM MENU VIEW */
                 <div className="flex flex-col gap-3 h-full">
                   <div className="bg-white p-3 rounded-xl border border-earth-rust/20 shadow-sm flex flex-col gap-2 shrink-0">
                     <label className="text-xs font-bold text-earth-maroon">
@@ -240,90 +301,80 @@ export default function KymDashboard() {
                     </div>
                   )}
                 </div>
-              ) : (
-                // --- MY COLLECTIONS VIEW ---
-                !selectedCollection ? (
-                  <>
-                    {isAuthenticated &&
-                      (isCreatingCollection ? (
-                        <form
-                          onSubmit={handleCreateCollection}
-                          className="p-3 bg-white rounded-xl border border-earth-rust/30 shadow-sm"
-                        >
-                          <input
-                            autoFocus
-                            type="text"
-                            placeholder="Menu name..."
-                            className="w-full bg-earth-beige/40 border border-earth-rust/40 rounded px-3 py-2 text-xs font-medium text-earth-maroon focus:outline-none focus:border-earth-rust mb-2"
-                            value={newCollectionName}
-                            onChange={(e) => setNewCollectionName(e.target.value)}
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              type="submit"
-                              className="flex-1 bg-earth-rust text-earth-beige text-xs font-bold py-1.5 rounded-lg hover:bg-earth-maroon"
-                            >
-                              Save
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setIsCreatingCollection(false)}
-                              className="flex-1 bg-gray-100 text-earth-maroon text-xs font-bold py-1.5 rounded-lg hover:bg-gray-200"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </form>
-                      ) : (
-                        <button
-                          onClick={() => setIsCreatingCollection(true)}
-                          className="p-3 rounded-xl border border-dashed border-earth-rust/40 hover:border-earth-rust text-earth-maroon font-bold text-xs transition-all flex items-center justify-center gap-1 bg-white shadow-sm hover:bg-earth-beige/50"
-                        >
-                          <span>+</span> New Menu
-                        </button>
-                      ))}
+              ) : !selectedCollection ? (
+                /* MY COLLECTIONS VIEW */
+                <>
+                  {isAuthenticated &&
+                    (isCreatingCollection ? (
+                      <form
+                        onSubmit={handleCreateCollection}
+                        className="p-3 bg-white rounded-xl border border-earth-rust/30 shadow-sm"
+                      >
+                        <input
+                          autoFocus
+                          type="text"
+                          placeholder="Menu name..."
+                          className="w-full bg-earth-beige/40 border border-earth-rust/40 rounded px-3 py-2 text-xs font-medium text-earth-maroon focus:outline-none focus:border-earth-rust mb-2"
+                          value={newCollectionName}
+                          onChange={(e) => setNewCollectionName(e.target.value)}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            type="submit"
+                            className="flex-1 bg-earth-rust text-earth-beige text-xs font-bold py-1.5 rounded-lg hover:bg-earth-maroon"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsCreatingCollection(false)}
+                            className="flex-1 bg-gray-100 text-earth-maroon text-xs font-bold py-1.5 rounded-lg hover:bg-gray-200"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <button
+                        onClick={() => setIsCreatingCollection(true)}
+                        className="p-3 rounded-xl border border-dashed border-earth-rust/40 hover:border-earth-rust text-earth-maroon font-bold text-xs transition-all flex items-center justify-center gap-1 bg-white shadow-sm hover:bg-earth-beige/50"
+                      >
+                        <span>+</span> New Menu
+                      </button>
+                    ))}
 
-                    {myCollections.length === 0 && !isLoading && !isCreatingCollection && (
+                  {myCollections.length === 0 &&
+                    !isLoading &&
+                    !isCreatingCollection && (
                       <div className="text-center font-medium text-earth-maroon/60 p-6 text-sm">
-                        {isAuthenticated ? "No collections found." : "Log in to view collections."}
+                        {isAuthenticated
+                          ? "No collections found."
+                          : "Log in to view collections."}
                       </div>
                     )}
 
-                    <div className="flex flex-col gap-2.5">
-                      {myCollections.map((col) => (
-                        <button
-                          key={col.id}
-                          onClick={() => setSelectedCollection(col)}
-                          className="p-3.5 text-left rounded-xl transition-all border border-earth-rust/20 bg-white shadow-sm hover:border-earth-rust/60 flex justify-between items-center group"
-                        >
-                          <div>
-                            <h3 className="font-bold text-earth-maroon text-sm">{col.name}</h3>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-[10px] font-semibold text-earth-rust bg-earth-rust/10 px-1.5 py-0.5 rounded">
-                                {col.dishes?.length || 0} items
-                              </span>
-                              <span className="text-[10px] text-earth-maroon/60">
-                                By {col.userName}
-                              </span>
-                            </div>
-                          </div>
-                          <span className="text-sm text-earth-rust transform group-hover:translate-x-1 transition-transform">
-                            →
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex flex-col gap-3 h-full">
-                    <button
-                      onClick={clearSelection}
-                      className="text-earth-rust font-bold text-xs flex items-center gap-1.5 px-3 py-1.5 bg-white border border-earth-rust/30 rounded-lg shadow-sm w-fit hover:bg-earth-beige transition-all"
-                    >
-                      ← Back to lists
-                    </button>
+                  <div className="flex flex-col gap-2.5">
+                    {myCollections.map((col) => (
+                      <DraggableCollectionItem
+                        key={col.id}
+                        collection={col}
+                        onClick={setSelectedCollection}
+                      />
+                    ))}
+                  </div>
+                </>
+              ) : (
+                /* SELECTED COLLECTION DETAILS VIEW */
+                <div className="flex flex-col gap-3 h-full">
+                  <button
+                    onClick={clearSelection}
+                    className="text-earth-rust font-bold text-xs flex items-center gap-1.5 px-3 py-1.5 bg-white border border-earth-rust/30 rounded-lg shadow-sm w-fit hover:bg-earth-beige transition-all"
+                  >
+                    ← Back to lists
+                  </button>
 
-                    <div className="bg-white p-3.5 rounded-xl border border-earth-rust/20 shadow-sm">
+                  <div className="bg-white p-3.5 rounded-xl border border-earth-rust/20 shadow-sm flex justify-between items-center">
+                    <div>
                       <h3 className="font-bold text-earth-maroon text-sm">
                         {selectedCollection.name}
                       </h3>
@@ -332,47 +383,78 @@ export default function KymDashboard() {
                       </p>
                     </div>
 
-                    {/* Drop zones for edit/delete */}
-                    <div
-                      className={`flex gap-2 transition-all duration-200 overflow-hidden ${
-                        activeDragId ? "h-16 opacity-100 mb-1" : "h-0 opacity-0 mb-0"
-                      }`}
-                    >
-                      <DropZone id="edit-drop" type="edit">
-                        <span className="text-xs font-bold text-earth-maroon">🔧 Edit</span>
-                      </DropZone>
-                      <DropZone id="delete-drop" type="delete">
-                        <span className="text-xs font-bold text-red-700">🗑️ Trash</span>
-                      </DropZone>
-                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() =>
+                          setWheelDishes(selectedCollection.dishes || [])
+                        }
+                        className="p-1.5 text-earth-rust bg-earth-rust/10 hover:bg-earth-rust hover:text-white rounded-md transition-all shadow-sm flex items-center justify-center"
+                        title="Select All Dishes"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M9 11l3 3L22 4" />
+                          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                        </svg>
+                      </button>
 
-                    {/* Scrollable Grid Container for dishes */}
-                    <div className="flex-1 overflow-y-auto pr-1">
-                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 pb-3">
-                        {isCreatingDishLoading ? (
-                          <div className="aspect-square rounded-xl bg-gray-100 animate-pulse border border-earth-rust/20" />
-                        ) : (
-                          <button
-                            onClick={openCreateDishModal}
-                            className="aspect-square rounded-xl border border-dashed border-earth-rust/40 hover:border-earth-rust text-earth-maroon/60 hover:text-earth-maroon font-bold transition-all flex flex-col items-center justify-center gap-1 bg-white shadow-sm"
-                          >
-                            <span className="text-lg">+</span>
-                            <span className="text-[9px]">Add</span>
-                          </button>
-                        )}
-
-                        {selectedCollection.dishes?.map((dish) => (
-                          <DraggableDishCard
-                            key={dish.id}
-                            dish={dish}
-                            isSelected={selectedDishIds.has(dish.id)}
-                            onToggle={toggleWheelDish}
-                          />
-                        ))}
-                      </div>
+                      <button
+                        onClick={() => setWheelDishes([])}
+                        className="p-1.5 text-earth-maroon/50 bg-earth-beige/50 hover:bg-earth-beige hover:text-earth-maroon rounded-md transition-all shadow-sm border border-earth-rust/20 flex items-center justify-center"
+                        title="Unselect All Dishes"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <rect width="18" height="18" x="3" y="3" rx="2" />
+                        </svg>
+                      </button>
                     </div>
                   </div>
-                )
+
+                  {/* Scrollable Grid Container for dishes */}
+                  <div className="flex-1 overflow-y-auto pr-1">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 pb-3">
+                      {isCreatingDishLoading ? (
+                        <div className="aspect-square rounded-xl bg-gray-100 animate-pulse border border-earth-rust/20" />
+                      ) : (
+                        <button
+                          onClick={openCreateDishModal}
+                          className="aspect-square rounded-xl border border-dashed border-earth-rust/40 hover:border-earth-rust text-earth-maroon/60 hover:text-earth-maroon font-bold transition-all flex flex-col items-center justify-center gap-1 bg-white shadow-sm"
+                        >
+                          <span className="text-lg">+</span>
+                          <span className="text-[9px]">Add</span>
+                        </button>
+                      )}
+
+                      {selectedCollection.dishes?.map((dish) => (
+                        <DraggableDishCard
+                          key={dish.id}
+                          dish={dish}
+                          isSelected={selectedDishIds.has(dish.id)}
+                          onToggle={toggleWheelDish}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -394,15 +476,20 @@ export default function KymDashboard() {
                   </p>
                 </div>
 
-                <FortuneWheel dishes={wheelDishes} onWinnerSelected={setWinnerPopupDish} />
+                <FortuneWheel
+                  dishes={wheelDishes}
+                  onWinnerSelected={setWinnerPopupDish}
+                />
               </div>
             ) : (
               <div className="z-10 flex flex-col items-center justify-center text-center max-w-sm p-8 bg-white rounded-2xl border border-earth-rust/20 shadow-sm">
                 <div className="text-4xl mb-3">🍽️</div>
-                <h3 className="font-bold text-earth-maroon text-base mb-1">No dishes selected</h3>
+                <h3 className="font-bold text-earth-maroon text-base mb-1">
+                  No dishes selected
+                </h3>
                 <p className="text-earth-maroon/70 text-xs">
-                  Click dishes from your loaded menu on the left (or toggle to the Inventory tab) to
-                  add them to your spin wheel!
+                  Click dishes from your loaded menu on the left (or toggle to
+                  the Inventory tab) to add them to your spin wheel!
                 </p>
               </div>
             )}
@@ -411,7 +498,7 @@ export default function KymDashboard() {
 
         {/* Custom Drag Overlay */}
         <DragOverlay dropAnimation={{ duration: 150, easing: "ease-out" }}>
-          {activeDragDish ? (
+          {activeDragType === "dish" && activeDragDish ? (
             <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-earth-rust shadow-xl bg-white rotate-3">
               {activeDragDish.profileImageUrl ? (
                 <img
@@ -427,6 +514,12 @@ export default function KymDashboard() {
                 </div>
               )}
             </div>
+          ) : activeDragType === "collection" && activeDragCollection ? (
+            <div className="p-3 bg-white rounded-xl border-2 border-dashed border-earth-rust shadow-xl w-48 rotate-3 opacity-90">
+              <h3 className="font-bold text-earth-maroon text-sm">
+                {activeDragCollection.name}
+              </h3>
+            </div>
           ) : null}
         </DragOverlay>
       </DndContext>
@@ -440,18 +533,36 @@ export default function KymDashboard() {
         initialDish={editingDish}
       />
 
+      {/* Collection Edit Modal */}
+      <CollectionModal
+        isOpen={isCollectionModalOpen}
+        onClose={() => setIsCollectionModalOpen(false)}
+        initialCollection={editingCollection}
+      />
+
       {/* Delete Confirmation Modal */}
-      {isDeleteConfirmOpen && dishToDelete && (
+      {isDeleteConfirmOpen && (dishToDelete || collectionToDelete) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-earth-maroon/40 backdrop-blur-xs">
           <div className="bg-earth-beige rounded-2xl border border-earth-rust/30 shadow-xl w-full max-w-xs p-6 text-center">
-            <h3 className="text-base font-bold text-earth-maroon mb-2">Delete Dish?</h3>
+            <h3 className="text-base font-bold text-earth-maroon mb-2">
+              {collectionToDelete ? "Delete Menu?" : "Delete Dish?"}
+            </h3>
             <p className="text-xs text-earth-maroon/70 mb-5">
               Are you sure you want to remove{" "}
-              <span className="font-semibold text-earth-maroon">{dishToDelete.name}</span>?
+              <span className="font-semibold text-earth-maroon">
+                {collectionToDelete
+                  ? collectionToDelete.name
+                  : dishToDelete.name}
+              </span>
+              ?
             </p>
             <div className="flex gap-3">
               <button
-                onClick={() => setIsDeleteConfirmOpen(false)}
+                onClick={() => {
+                  setIsDeleteConfirmOpen(false);
+                  setDishToDelete(null);
+                  setCollectionToDelete(null);
+                }}
                 className="flex-1 bg-gray-200 text-earth-maroon font-bold text-xs py-2 rounded-xl hover:bg-gray-300"
               >
                 Cancel
@@ -483,7 +594,10 @@ export default function KymDashboard() {
             </h2>
             {winnerPopupDish.categoryName && (
               <p className="text-xs text-earth-maroon/70 mb-6">
-                Category: <span className="font-semibold">{winnerPopupDish.categoryName}</span>
+                Category:{" "}
+                <span className="font-semibold">
+                  {winnerPopupDish.categoryName}
+                </span>
               </p>
             )}
             <div className="flex gap-3">
