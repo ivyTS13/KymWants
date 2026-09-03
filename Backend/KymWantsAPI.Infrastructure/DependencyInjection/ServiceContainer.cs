@@ -35,7 +35,7 @@ namespace KymWantsAPI.Infrastructure.DependencyInjection
             services.AddScoped<ICacheService, RedisCacheService>();
             services.AddScoped<IImageStorageService, ImageKitStorageService>();
             // Repositories
-            services.AddScoped<IUserRepository,UserRepository>();
+            services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IDishRepository, DishRepository>();
             services.AddScoped<ICollectionRepository, CollectionRepository>();
             services.AddScoped<ICategoryRepository, CategoryRepository>();
@@ -45,7 +45,7 @@ namespace KymWantsAPI.Infrastructure.DependencyInjection
             services.AddScoped<ICollectionService, CollectionService>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
-            services.AddScoped<IEmailService,ResendEmailService>();
+            services.AddScoped<IEmailService, ResendEmailService>();
 
             // 2. CORS
             var allowedOrigins = config.GetSection("Frontend:AllowedOrigins").Get<string[]>()
@@ -69,26 +69,29 @@ namespace KymWantsAPI.Infrastructure.DependencyInjection
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
             })
-            .AddCookie() // Temporary cookie handler for handling the Google OAuth callback redirect
+            .AddCookie(options =>
+            {
+                // Fix cookie behavior for temporary OAuth callback cookies behind HTTPS proxy
+                options.Cookie.SameSite = SameSiteMode.Lax;
+                options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+            })
             .AddGoogle(options =>
             {
                 options.ClientId = config["Authentication:Google:ClientId"]!;
                 options.ClientSecret = config["Authentication:Google:ClientSecret"]!;
-                // Ensure profile scope is requested
                 options.Scope.Add("profile");
                 options.Scope.Add("email");
 
-                // Map the picture claim explicitly from Google's JSON response
+                // CRITICAL: Configure Correlation Cookie settings behind proxy
+                options.CorrelationCookie.SameSite = SameSiteMode.Lax;
+                options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
+
                 options.ClaimActions.MapJsonKey("picture", "picture");
 
                 options.Events.OnRemoteFailure = context =>
                 {
-                    // Suppress the exception that crashes the app
                     context.HandleResponse();
-
-                    // Redirect to YOUR controller's callback endpoint, passing the error
                     context.Response.Redirect("/api/Auth/google-callback?error=access_denied");
-
                     return Task.CompletedTask;
                 };
             })
@@ -155,21 +158,25 @@ namespace KymWantsAPI.Infrastructure.DependencyInjection
                         }));
             });
 
-            // 6. Enable Forwarded Headers
-
+            // 6. Enable Forwarded Headers (CRITICAL FOR CLOUDFLARE WORKER PROXY)
             services.Configure<ForwardedHeadersOptions>(options =>
             {
                 options.ForwardedHeaders =
                     ForwardedHeaders.XForwardedFor |
+                    ForwardedHeaders.XForwardedHost |
                     ForwardedHeaders.XForwardedProto;
+
+                // Clear known networks/proxies so ASP.NET Core trusts Cloudflare Worker's headers
+                options.KnownNetworks.Clear();
+                options.KnownProxies.Clear();
             });
 
-
-            /// 7. Resend Email
+            // 7. Resend Email
             services.AddResend(options =>
             {
                 options.ApiToken = config["Resend:ApiKey"]!;
             });
+
             return services;
         }
     }
