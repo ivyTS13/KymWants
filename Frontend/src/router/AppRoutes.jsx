@@ -9,14 +9,16 @@ import KymDashboard from "../pages/KymDashBoard";
 import ForgotPasswordPage from "../pages/ForgotPassPage";
 import ResetPasswordPage from "../pages/ResetPasswordPage";
 import ProfilePage from "../pages/ProfilePage";
+import AdminPdfManager from "../pages/AdminPdfManager";
 
 export const PATHS = {
   LOGIN: "/login",
   REGISTER: "/register",
-  FORGOTPASS:"/forgot",
+  FORGOTPASS: "/forgot",
   DASHBOARD: "/dashboard",
-  RESETPASSWORD:"/reset-password",
-  PROFILEPAGE:"/profile"
+  RESETPASSWORD: "/reset-password",
+  PROFILEPAGE: "/profile",
+  DOCUMENTS: "/documents",
 };
 
 export default function AppRoutes() {
@@ -33,19 +35,15 @@ export default function AppRoutes() {
       <div className="min-h-screen bg-earth-beige flex flex-col items-center justify-center p-4 text-center font-sans">
         {/* Animated Graphic */}
         <div className="relative w-24 h-24 mb-8 flex items-center justify-center">
-          {/* Outer expanding ring */}
           <div className="absolute inset-0 rounded-full border-4 border-earth-rust/30 animate-ping"></div>
-          {/* Middle spinning track */}
           <div
             className="absolute inset-2 rounded-full border-4 border-earth-rust/20 border-t-earth-rust animate-spin"
             style={{ animationDuration: "1.5s" }}
           ></div>
-          {/* Inner fast spinner */}
           <div
             className="absolute inset-6 rounded-full border-4 border-transparent border-t-earth-maroon border-b-earth-maroon animate-spin"
             style={{ animationDuration: "0.8s" }}
           ></div>
-          {/* Center core */}
           <div className="w-4 h-4 bg-earth-maroon rounded-full animate-pulse"></div>
         </div>
 
@@ -88,11 +86,16 @@ export default function AppRoutes() {
         />
         <Route path={PATHS.FORGOTPASS} element={<ForgotPasswordPage />} />
         <Route path={PATHS.RESETPASSWORD} element={<ResetPasswordPage />} />
-        {/* Protected Routes - Everything inside here requires authentication */}
+
+        {/* Standard Protected Routes (Accessible to ALL logged-in users) */}
         <Route element={<ProtectedRoute />}>
           <Route path={PATHS.DASHBOARD} element={<KymDashboard />} />
           <Route path={PATHS.PROFILEPAGE} element={<ProfilePage />} />
-          {/* Add more protected routes here like /settings, /profile */}
+        </Route>
+
+        {/* Admin-Only Protected Routes (Requires user.isSuperUser === true) */}
+        <Route element={<ProtectedRoute requireAdmin={true} />}>
+          <Route path={PATHS.DOCUMENTS} element={<AdminPdfManager />} />
         </Route>
 
         {/* 404 Catch-All */}

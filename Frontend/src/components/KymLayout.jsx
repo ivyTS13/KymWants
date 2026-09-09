@@ -4,6 +4,7 @@ import apiClient from "../api/axios";
 import useUserStore from "../store/useUserStore";
 import { PATHS } from "../router/AppRoutes";
 import BobaLogo from "./BobaLogo";
+import FloatingChat from "./FloatingChat";
 
 export default function Layout({ children }) {
   const user = useUserStore((state) => state.user);
@@ -42,7 +43,6 @@ export default function Layout({ children }) {
     <div className="min-h-screen flex flex-col bg-earth-beige text-earth-maroon font-sans">
       {/* Navbar */}
       <header className="sticky top-0 z-50 bg-earth-green shadow-md">
-        {/* Changed: removed max-w and mx-auto, kept only padding */}
         <div className="px-3 sm:px-5 lg:px-6">
           <div className="flex items-center justify-between h-16">
             {/* Left: Logo + App name */}
@@ -71,7 +71,7 @@ export default function Layout({ children }) {
                         src={user.profileImageUrl}
                         alt={`${user.displayName}'s profile`}
                         className="w-full h-full object-cover"
-                        referrerPolicy="no-referrer" /* Crucial for Google image URLs to prevent 403 errors */
+                        referrerPolicy="no-referrer"
                       />
                     ) : (
                       initial
@@ -98,6 +98,18 @@ export default function Layout({ children }) {
                       >
                         Profile
                       </Link>
+
+                      {/* Documents Link - Superuser Only */}
+                      {user?.isSuperUser && (
+                        <Link
+                          to={PATHS.DOCUMENTS}
+                          className="block px-4 py-2 text-sm text-earth-maroon hover:bg-earth-rust/10 transition-colors"
+                          onClick={() => setDropdownOpen(false)}
+                        >
+                          Documents
+                        </Link>
+                      )}
+
                       <button
                         onClick={handleLogout}
                         className="w-full text-left px-4 py-2 text-sm text-earth-maroon hover:bg-earth-rust/10 transition-colors"
@@ -145,6 +157,7 @@ export default function Layout({ children }) {
           </p>
         </div>
       </footer>
+      {isAuthenticated && <FloatingChat />}
     </div>
   );
 }

@@ -14,6 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Resend;
 using StackExchange.Redis;
+using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
 
@@ -27,18 +28,19 @@ namespace KymWantsAPI.Infrastructure.DependencyInjection
             services.AddDbContext<KymWantsDBContext>(options =>
                 options.UseNpgsql(
                     config.GetConnectionString("DefaultConnection"),
-                    npgsqlOptions => npgsqlOptions.EnableRetryOnFailure()
+                    npgsqlOptions => npgsqlOptions.EnableRetryOnFailure().UseVector()
                 ));
 
             // Services DI
             // Infrastructure & Cache
             services.AddScoped<ICacheService, RedisCacheService>();
-            services.AddScoped<IImageStorageService, ImageKitStorageService>();
+            services.AddScoped<IImageStorageService, ImageKitStorageService>();           
             // Repositories
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IDishRepository, DishRepository>();
             services.AddScoped<ICollectionRepository, CollectionRepository>();
             services.AddScoped<ICategoryRepository, CategoryRepository>();
+            services.AddScoped<IDocumentRepository, DocumentRepository>();
             // Application Services
             services.AddScoped<IDishService, DishService>();
             services.AddScoped<IAuthService, AuthService>();
@@ -46,6 +48,11 @@ namespace KymWantsAPI.Infrastructure.DependencyInjection
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
             services.AddScoped<IEmailService, ResendEmailService>();
+           services.AddScoped<IPdfChunkingService, PdfChunkingService>();
+           services.AddHttpClient<IEmbeddingService, EmbeddingService>();
+           services.AddSingleton<ITokenBudgetService, TokenBudgetService>();
+           services.AddScoped<IRagChatService, RagChatService>();
+           services.AddScoped<DocumentIngestionService>();
 
             // 2. CORS
             var allowedOrigins = config.GetSection("Frontend:AllowedOrigins").Get<string[]>()
@@ -112,7 +119,9 @@ namespace KymWantsAPI.Infrastructure.DependencyInjection
                     ValidateIssuerSigningKey = true,
                     ValidIssuer = issuer,
                     ValidAudience = audience,
-                    IssuerSigningKey = new SymmetricSecurityKey(key)
+                    IssuerSigningKey = new SymmetricSecurityKey(key),
+
+                    RoleClaimType = ClaimTypes.Role
                 };
 
                 // Extracts JWT directly from HttpOnly Cookie instead of Bearer Header
@@ -176,6 +185,23 @@ namespace KymWantsAPI.Infrastructure.DependencyInjection
             services.AddResend(options =>
             {
                 options.ApiToken = config["Resend:ApiKey"]!;
+            });
+
+            //8. HttpClient for OpenRouter
+
+           services.AddHttpClient<IRagChatService, RagChatService>(client =>
+            {
+                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {config["OpenRouter:ApiKey"]}");
+                client.DefaultRequestHeaders.Add("HTTP-Referer", config["Frontend:RedirectUrl"]);
+                client.DefaultRequestHeaders.Add("X-Title", "KymWants User Guide RAG");
+            });
+
+            services.AddHttpClient<IEmbeddingService, EmbeddingService>(client =>
+            {
+                client.BaseAddress = new Uri("https://openrouter.ai/api/v1/");
+                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {config["OpenRouter:ApiKey"]}");
+                client.DefaultRequestHeaders.Add("HTTP-Referer", config["Frontend:RedirectUrl"] ?? "https://kymwants.com");
+                client.DefaultRequestHeaders.Add("X-Title", "KymWants User Guide RAG");
             });
 
             return services;

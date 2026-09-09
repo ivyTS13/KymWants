@@ -3,6 +3,7 @@ using System;
 using KymWantsAPI.Infrastructure.KymContext;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pgvector;
@@ -12,9 +13,11 @@ using Pgvector;
 namespace KymWantsAPI.Infrastructure.Migrations
 {
     [DbContext(typeof(KymWantsDBContext))]
-    partial class KymWantsDBContextModelSnapshot : ModelSnapshot
+    [Migration("20260909084706_AddVector")]
+    partial class AddVector
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -185,7 +188,7 @@ namespace KymWantsAPI.Infrastructure.Migrations
 
                     b.Property<Vector>("Embedding")
                         .IsRequired()
-                        .HasColumnType("vector(1024)")
+                        .HasColumnType("vector(1536)")
                         .HasColumnName("embedding");
 
                     b.Property<int>("PageNumber")
@@ -235,10 +238,6 @@ namespace KymWantsAPI.Infrastructure.Migrations
                         .HasMaxLength(1024)
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("hashed_password");
-
-                    b.Property<bool>("IsSuperUser")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_superuser");
 
                     b.Property<string>("ProfileImageUrl")
                         .HasColumnType("character varying")

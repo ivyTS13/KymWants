@@ -33,7 +33,8 @@ namespace KymWantsAPI.Domain.Models
         [Column("profile_image_url", TypeName = "character varying")]
         [Url] 
         public string? ProfileImageUrl { get; set; }
-
+        [Column("is_superuser")]
+        public bool IsSuperUser { get; set; } = false;
         [Column("created_at")]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

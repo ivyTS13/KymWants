@@ -8,7 +8,8 @@ namespace KymWantsAPI.Application.DTOs
       Guid Id,
       string Email,
       string? DisplayName,
-      string? ProfileImageUrl
+      string? ProfileImageUrl,
+      bool IsSuperUser
   );
 
 

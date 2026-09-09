@@ -1,5 +1,4 @@
 ﻿
-
 using KymWantsAPI.Application.Interfaces;
 using KymWantsAPI.Domain.Models;
 using Microsoft.Extensions.Configuration;
@@ -27,7 +26,9 @@ namespace KymWantsAPI.Infrastructure.Services
             var claims = new[]
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-                new Claim(JwtRegisteredClaimNames.Email, user.Email),          
+                new Claim(JwtRegisteredClaimNames.Email, user.Email),
+               new Claim("role", user.IsSuperUser ? "Admin" : "User"),
+                new Claim(ClaimTypes.Role, user.IsSuperUser ? "Admin" : "User")
             };
 
             var token = new JwtSecurityToken(
