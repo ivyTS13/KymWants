@@ -2,6 +2,8 @@
 
 using KymWantsAPI.Domain.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Pgvector;
 
 namespace KymWantsAPI.Infrastructure.KymContext
 {
@@ -16,11 +18,37 @@ namespace KymWantsAPI.Infrastructure.KymContext
         public DbSet<Dish> Dishes { get; set; }
         public DbSet<Collection> Collections { get; set; }
         public DbSet<CollectionDish> CollectionDishes { get; set; }
+        public DbSet<DocumentChunk> DocumentChunks { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
+            // 1. ENABLE PGVECTOR EXTENSION
+            modelBuilder.HasPostgresExtension("vector");
+            // 1.2 VALUE COMPARER FOR float[]
+            var floatArrayComparer = new ValueComparer<float[]>(
+                (c1, c2) => c1 != null && c2 != null && c1.SequenceEqual(c2),
+                c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+                c => c.ToArray()
+            );
+
+            // 2. CONFIGURE DOCUMENT CHUNK VECTOR MAPPING & INDEX
+            modelBuilder.Entity<DocumentChunk>(entity =>
+            {
+                entity.Property(dc => dc.Embedding)
+                      .HasColumnType("vector(1024)")
+                      .HasConversion(
+                          v => new Vector(v),  // Convert float[] -> Pgvector.Vector
+                          v => v.ToArray(),    // Convert Pgvector.Vector -> float[]
+                          floatArrayComparer   // Pass ValueComparer as 3rd argument
+                      );
+
+                // Create HNSW index for fast similarity search
+                entity.HasIndex(dc => dc.Embedding)
+                      .HasMethod("hnsw")
+                      .HasOperators("vector_cosine_ops");
+            });
             // Defines the joint primary key for the Many-to-Many table
             modelBuilder.Entity<CollectionDish>()
                 .HasKey(cd => new { cd.CollectionId, cd.DishId });
