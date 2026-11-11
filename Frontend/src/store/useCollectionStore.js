@@ -34,6 +34,8 @@ const useCollectionStore = create((set, get) => ({
     }
   },
 
+  clearError: () => set({ error: null }),
+
   fetchSharedCollections: async () => {
     set({ isLoading: true, error: null });
     try {
@@ -54,6 +56,10 @@ const useCollectionStore = create((set, get) => ({
     }
   },
 
+  retryFetchMyCollections: async () => {
+    await get().fetchMyCollections();
+  },
+
   createCollection: async (name) => {
     try {
       const response = await apiClient.post("/Collections", {
@@ -63,8 +69,11 @@ const useCollectionStore = create((set, get) => ({
       set((state) => ({
         myCollections: [...state.myCollections, response.data],
       }));
+      return { success: true };
     } catch (error) {
       console.error("Failed to create collection", error);
+      set({ error: error.message });
+      return { success: false, error: error.message };
     }
   },
 
@@ -105,8 +114,11 @@ const useCollectionStore = create((set, get) => ({
         return col;
       });
       set({ myCollections: updatedCollections });
+      return { success: true };
     } catch (error) {
       console.error("Failed to add dish", error);
+      set({ error: error.message });
+      return { success: false, error: error.message };
     } finally {
       set({ isCreatingDishLoading: false });
     }
@@ -153,49 +165,60 @@ const useCollectionStore = create((set, get) => ({
         return col;
       });
       set({ myCollections: updatedCollections });
+      return { success: true };
     } catch (error) {
       console.error("Failed to update dish", error);
+      set({ error: error.message });
+      return { success: false, error: error.message };
     } finally {
       set({ isUpdatingDishLoading: false });
     }
   },
-updateCollection: async (collectionId, newName) => {
+
+  updateCollection: async (collectionId, newName) => {
     try {
       const response = await apiClient.put(`/Collections/${collectionId}`, {
         name: newName,
         isShared: false
       });
-      
+
       const updatedCollection = response.data;
-      
+
       // Update in lists
       set((state) => ({
-        myCollections: state.myCollections.map((c) => 
+        myCollections: state.myCollections.map((c) =>
           c.id === collectionId ? { ...c, name: updatedCollection.name } : c
         ),
         // If it's the currently viewed collection, update its title too
-        selectedCollection: state.selectedCollection?.id === collectionId 
-          ? { ...state.selectedCollection, name: updatedCollection.name } 
+        selectedCollection: state.selectedCollection?.id === collectionId
+          ? { ...state.selectedCollection, name: updatedCollection.name }
           : state.selectedCollection
       }));
+      return { success: true };
     } catch (error) {
       console.error("Failed to update collection", error);
+      set({ error: error.message });
+      return { success: false, error: error.message };
     }
   },
 
   deleteCollection: async (collectionId) => {
     try {
       await apiClient.delete(`/Collections/${collectionId}`);
-      
+
       set((state) => ({
         myCollections: state.myCollections.filter((c) => c.id !== collectionId),
         // If we deleted the one we are looking at, go back to the list
         selectedCollection: state.selectedCollection?.id === collectionId ? null : state.selectedCollection,
       }));
+      return { success: true };
     } catch (error) {
       console.error("Failed to delete collection", error);
+      set({ error: error.message });
+      return { success: false, error: error.message };
     }
   },
+
   deleteDish: async (dishId) => {
     set({ isDeletingDishLoading: true });
     try {
@@ -223,8 +246,11 @@ updateCollection: async (collectionId, newName) => {
       // Remove from wheelDishes if present
       const wheelDishes = get().wheelDishes.filter((d) => d.id !== dishId);
       set({ wheelDishes });
+      return { success: true };
     } catch (error) {
       console.error("Failed to delete dish", error);
+      set({ error: error.message });
+      return { success: false, error: error.message };
     } finally {
       set({ isDeletingDishLoading: false });
     }

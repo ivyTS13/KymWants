@@ -15,8 +15,9 @@ export default function ProtectedRoute({ requireAdmin = false }) {
   // 1. Wait until checkAuth() finishes pinging /Auth/me on initial app load
   if (isCheckingAuth) {
     return (
-      <div className="flex justify-center items-center h-screen text-earth-maroon">
-        <span className="animate-spin text-2xl mr-2">🌀</span> Verifying authentication...
+      <div role="status" aria-live="polite" className="flex justify-center items-center h-screen text-earth-maroon bg-earth-beige">
+        <span className="w-5 h-5 rounded-full border-2 border-earth-rust/30 border-t-earth-rust animate-spin mr-2.5 inline-block" />
+        <span className="text-xs font-bold text-earth-maroon tracking-wide">Checking session...</span>
       </div>
     );
   }

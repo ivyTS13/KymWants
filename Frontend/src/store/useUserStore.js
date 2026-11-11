@@ -26,7 +26,7 @@ const useUserStore = create((set) => ({
         isAuthenticated: true, 
         isCheckingAuth: false 
       });
-    } catch (error) {
+    } catch {
       // If 401 Unauthorized, the user has no valid cookie
       set({ 
         user: null, 

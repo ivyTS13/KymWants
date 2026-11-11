@@ -1,17 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import apiClient from "../api/axios";
 import { PATHS } from "../router/AppRoutes";
 import useUserStore from "../store/useUserStore";
 import CuteGirlAvatar from "../components/BobaLogo";
-import DonutIcon from "../assets/Snacks/Donut";
-import CupcakeIcon from "../assets/Snacks/Cupcake";
-import IceCreamIcon from "../assets/Snacks/IceCream";
-import CoffeeIcon from "../assets/Snacks/Coffee";
-import SodaIcon from "../assets/Snacks/SodaCup";
-import FriesIcon from "../assets/Snacks/FrenchFries";
-import CookieIcon from "../assets/Snacks/Cookies";
-import PizzaIcon from "../assets/Snacks/Pizza";
+import FloatingFoodBackground from "../components/FloatingFoodBackground";
 
 export default function AuthPage({ initialMode = "login" }) {
   const isLogin = initialMode === "login";
@@ -23,7 +16,7 @@ export default function AuthPage({ initialMode = "login" }) {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-const checkAuth = useUserStore((state) => state.checkAuth);
+  const checkAuth = useUserStore((state) => state.checkAuth);
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -39,14 +32,13 @@ const checkAuth = useUserStore((state) => state.checkAuth);
     setLoading(true);
 
     try {
-      let response;
       if (isLogin) {
-        response = await apiClient.post("/Auth/login", {
+        await apiClient.post("/Auth/login", {
           email: formData.email,
           password: formData.password,
         });
       } else {
-        response = await apiClient.post("/Auth/register", {
+        await apiClient.post("/Auth/register", {
           email: formData.email,
           password: formData.password,
           displayName: formData.displayName,
@@ -73,142 +65,145 @@ const checkAuth = useUserStore((state) => state.checkAuth);
   };
 
   return (
-    <div className="min-h-[100dvh] flex items-center justify-center bg-earth-green p-4 font-sans text-earth-maroon">
-      <div className="w-full max-w-md bg-earth-beige border border-earth-rust/20 rounded-xl p-6 sm:p-8 shadow-2xl">
+    <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-earth-beige via-[#F8F2EB] to-[#F1E5D8] p-4 font-sans text-earth-maroon relative overflow-hidden">
+      <div className="w-full max-w-md bg-white/90 backdrop-blur-md border border-earth-rust/15 rounded-3xl p-7 sm:p-9 shadow-xl z-10">
         {/* Header */}
         <div className="text-center mb-6">
-          <div className="w-20 h-20 rounded-full bg-earth-rust flex items-center justify-center mb-4 mx-auto shadow-md">
+          <div className="w-20 h-20 rounded-full bg-earth-rust/10 border-2 border-earth-rust/20 flex items-center justify-center mb-3.5 mx-auto shadow-xs">
             <CuteGirlAvatar width={64} height={64} />
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold mb-1">
-            {isLogin ? "Log in to KymWants" : "Create your account"}
+          <h2 className="text-xl sm:text-2xl font-extrabold mb-1 tracking-tight font-display">
+            {isLogin ? "Welcome Back" : "Create Account"}
           </h2>
-          <p className="text-base text-earth-maroon/70">
+          <p className="text-xs text-earth-maroon/70 leading-relaxed">
             {isLogin
-              ? "Welcome back! Please enter your details."
-              : "Start managing your collections today."}
+              ? "Sign in to plan and spin your favorite meals"
+              : "Start organizing your aesthetic food collections"}
           </p>
         </div>
 
         {/* Error Alert */}
         {error && (
-          <div className="bg-earth-maroon/10 border border-earth-maroon text-earth-maroon px-3 py-2 rounded-md text-base mb-5 text-center font-medium">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-3.5 py-2.5 rounded-2xl text-xs mb-5 text-center font-medium animate-in fade-in">
             {error}
           </div>
         )}
-          <>
-            {/* Google Button */}
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              className="w-full flex items-center justify-center gap-3 bg-white text-earth-maroon px-4 py-2.5 rounded-md text-base font-semibold hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-earth-rust focus:ring-offset-2 focus:ring-offset-earth-beige shadow-sm"
-            >
-              <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                />
-              </svg>
-              Continue with Google
-            </button>
 
-            {/* Divider */}
-            <div className="flex items-center my-6">
-              <div className="flex-1 h-px bg-earth-rust/30"></div>
-              <span className="px-3 text-xs font-bold text-earth-maroon/60 uppercase">
-                OR
-              </span>
-              <div className="flex-1 h-px bg-earth-rust/30"></div>
-            </div>
-          </>
+        {/* Google Button */}
+        <button
+          type="button"
+          onClick={handleGoogleSignIn}
+          className="w-full flex items-center justify-center gap-3 bg-white border border-earth-rust/20 text-earth-maroon px-4 py-2.5 rounded-full text-xs font-bold hover:bg-earth-beige/40 transition-all focus:ring-2 focus:ring-earth-rust/30 shadow-xs"
+        >
+          <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24">
+            <path
+              fill="#4285F4"
+              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+            />
+            <path
+              fill="#34A853"
+              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+            />
+            <path
+              fill="#FBBC05"
+              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+            />
+            <path
+              fill="#EA4335"
+              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+            />
+          </svg>
+          Continue with Google
+        </button>
+
+        {/* Divider */}
+        <div className="flex items-center my-5">
+          <div className="flex-1 h-px bg-earth-rust/15"></div>
+          <span className="px-3 text-xs font-medium text-earth-maroon/60">
+            or with email
+          </span>
+          <div className="flex-1 h-px bg-earth-rust/15"></div>
+        </div>
+
         {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
           {!isLogin && (
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-earth-maroon">
+            <div className="flex flex-col gap-1">
+              <label htmlFor="auth-displayname" className="text-xs font-bold text-earth-maroon">
                 Display Name
               </label>
               <input
+                id="auth-displayname"
                 type="text"
                 name="displayName"
                 required
-                placeholder="John Doe"
+                placeholder="e.g. Kym"
                 value={formData.displayName}
                 onChange={handleChange}
-                className="w-full bg-white border border-earth-rust/40 rounded-md px-3 py-2 text-base text-earth-maroon placeholder:text-earth-maroon/40 focus:outline-none focus:border-earth-rust focus:ring-1 focus:ring-earth-rust transition-shadow"
+                className="w-full bg-earth-beige/30 border border-earth-rust/25 rounded-xl px-3.5 py-2.5 text-xs text-earth-maroon placeholder:text-earth-maroon/55 focus:outline-none focus:border-earth-rust focus:ring-2 focus:ring-earth-rust/20 transition-shadow"
               />
             </div>
           )}
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-earth-maroon">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="auth-email" className="text-xs font-bold text-earth-maroon">
               Email address
             </label>
             <input
+              id="auth-email"
               type="email"
               name="email"
               required
               placeholder="name@example.com"
               value={formData.email}
               onChange={handleChange}
-              className="w-full bg-white border border-earth-rust/40 rounded-md px-3 py-2 text-base text-earth-maroon placeholder:text-earth-maroon/40 focus:outline-none focus:border-earth-rust focus:ring-1 focus:ring-earth-rust transition-shadow"
+              className="w-full bg-earth-beige/30 border border-earth-rust/25 rounded-xl px-3.5 py-2.5 text-xs text-earth-maroon placeholder:text-earth-maroon/55 focus:outline-none focus:border-earth-rust focus:ring-2 focus:ring-earth-rust/20 transition-shadow"
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-earth-maroon">
+              <label htmlFor="auth-password" className="text-xs font-bold text-earth-maroon">
                 Password
               </label>
               {isLogin && (
                 <Link
                   to={PATHS.FORGOTPASS}
-                  className="text-xs text-earth-rust font-semibold hover:text-earth-maroon transition-colors"
+                  className="text-[11px] text-earth-rust font-semibold hover:text-earth-maroon transition-colors"
                 >
                   Forgot password?
                 </Link>
               )}
             </div>
             <input
+              id="auth-password"
               type="password"
               name="password"
               required
               placeholder="••••••••"
               value={formData.password}
               onChange={handleChange}
-              className="w-full bg-white border border-earth-rust/40 rounded-md px-3 py-2 text-base text-earth-maroon placeholder:text-earth-maroon/40 focus:outline-none focus:border-earth-rust focus:ring-1 focus:ring-earth-rust transition-shadow"
+              className="w-full bg-earth-beige/30 border border-earth-rust/25 rounded-xl px-3.5 py-2.5 text-xs text-earth-maroon placeholder:text-earth-maroon/55 focus:outline-none focus:border-earth-rust focus:ring-2 focus:ring-earth-rust/20 transition-shadow"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-earth-rust text-earth-beige px-4 py-2.5 rounded-md text-base font-bold hover:bg-earth-maroon transition-colors mt-2 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-earth-rust focus:ring-offset-2 focus:ring-offset-earth-beige"
+            className="w-full bg-earth-rust text-white px-4 py-3 rounded-full text-xs font-bold hover:bg-earth-maroon transition-all mt-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-xs hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-earth-rust"
           >
-            {loading ? "Processing..." : isLogin ? "Log in" : "Create account"}
+            {loading ? "Please wait..." : isLogin ? "Sign In" : "Create My Account"}
           </button>
         </form>
 
         {/* Footer */}
-        <div className="mt-6 text-center text-base text-earth-maroon/70">
+        <div className="mt-5 text-center text-xs text-earth-maroon/70">
           {isLogin ? (
             <p>
               Don't have an account?{" "}
               <Link
                 to={PATHS.REGISTER}
-                className="text-earth-rust font-bold hover:text-earth-maroon transition-colors"
+                className="text-earth-rust font-bold hover:underline"
               >
                 Sign up
               </Link>
@@ -218,66 +213,15 @@ const checkAuth = useUserStore((state) => state.checkAuth);
               Already have an account?{" "}
               <Link
                 to={PATHS.LOGIN}
-                className="text-earth-rust font-bold hover:text-earth-maroon transition-colors"
+                className="text-earth-rust font-bold hover:underline"
               >
-                Log in
+                Sign in
               </Link>
             </p>
           )}
         </div>
       </div>
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div
-          className="absolute left-[10%] top-[20%]"
-          style={{ animation: "float 6s ease-in-out infinite" }}
-        >
-          <DonutIcon width={40} height={40} />
-        </div>
-        <div
-          className="absolute left-[80%] top-[10%]"
-          style={{ animation: "float 7s ease-in-out 1s infinite" }}
-        >
-          <CupcakeIcon width={35} height={35} />
-        </div>
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div
-            className="absolute left-[5%] top-[15%]"
-            style={{ animation: "float 6s ease-in-out infinite" }}
-          >
-            <IceCreamIcon width={40} height={40} />
-          </div>
-          <div
-            className="absolute left-[75%] top-[30%]"
-            style={{ animation: "float 4s ease-in-out 1s infinite" }}
-          >
-            <CoffeeIcon width={35} height={35} />
-          </div>
-          <div
-            className="absolute left-[20%] top-[90%]"
-            style={{ animation: "float 8s ease-in-out 0.5s infinite" }}
-          >
-            <SodaIcon width={38} height={38} />
-          </div>
-          <div
-            className="absolute left-[70%] top-[85%]"
-            style={{ animation: "float 6.5s ease-in-out 1.5s infinite" }}
-          >
-            <FriesIcon width={42} height={42} />
-          </div>
-           <div
-            className="absolute left-[50%] top-[95%]"
-            style={{ animation: "float 3.5s ease-in-out 1.5s infinite" }}
-          >
-            <PizzaIcon width={42} height={42} />
-          </div>
-          <div
-            className="absolute left-[45%] top-[5%]"
-            style={{ animation: "float 7.5s ease-in-out 0.8s infinite" }}
-          >
-            <CookieIcon width={36} height={36} />
-          </div>
-        </div>
-      </div>
+      <FloatingFoodBackground />
     </div>
   );
 }

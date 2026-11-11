@@ -1,22 +1,27 @@
 import { useCallback, useMemo, useState, useEffect } from "react";
-import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  pointerWithin,
-} from "@dnd-kit/core";
+import { DndContext, DragOverlay, pointerWithin } from "@dnd-kit/core";
 import useUserStore from "../store/useUserStore";
 import useCollectionStore from "../store/useCollectionStore";
 import Layout from "../components/KymLayout";
 import FortuneWheel from "../components/FortuneWheel";
 import DishModal from "../components/DishModal";
-import DraggableDishCard from "../components/DraggableDiscard";
+import DraggableDishCard from "../components/DraggableDishCard";
 import DropZone from "../components/DropZone";
 import DraggableCollectionItem from "../components/DraggableCollectionItem";
 import CollectionModal from "../components/CollectionModal";
+import DeleteConfirmModal from "../components/DeleteConfirmModal";
+import WinnerModal from "../components/WinnerModal";
+import useDashboardDnd from "../hooks/useDashboardDnd";
+import {
+  WheelIcon,
+  BookMenuIcon,
+  EditPencilIcon,
+  TrashIcon,
+  PlusIcon,
+  ArrowLeftIcon,
+  MagicWandIcon,
+  UtensilsIcon,
+} from "../components/icons/UiIcons";
 
 export default function KymDashboard() {
   const { isAuthenticated } = useUserStore();
@@ -28,6 +33,7 @@ export default function KymDashboard() {
     setSelectedCollection,
     clearSelection,
     fetchMyCollections,
+    retryFetchMyCollections,
     createCollection,
     deleteCollection,
     wheelDishes,
@@ -37,6 +43,8 @@ export default function KymDashboard() {
     isCreatingDishLoading,
     isDeletingDishLoading,
     deleteDish,
+    error,
+    clearError,
   } = useCollectionStore();
 
   const [newCollectionName, setNewCollectionName] = useState("");
@@ -46,7 +54,6 @@ export default function KymDashboard() {
   const [editingDish, setEditingDish] = useState(null);
   const [dishToDelete, setDishToDelete] = useState(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-  const [activeDragId, setActiveDragId] = useState(null);
   const [isCollectionModalOpen, setIsCollectionModalOpen] = useState(false);
   const [editingCollection, setEditingCollection] = useState(null);
   const [collectionToDelete, setCollectionToDelete] = useState(null);
@@ -60,35 +67,58 @@ export default function KymDashboard() {
 
   // Winner Popup state
   const [winnerPopupDish, setWinnerPopupDish] = useState(null);
-  const [activeDragType, setActiveDragType] = useState(null);
 
-  const activeDragDish = activeDragId
-    ? selectedCollection?.dishes?.find((d) => d.id === activeDragId) ||
-      customDishes.find((d) => d.id === activeDragId)
-    : null;
+  const openCreateDishModal = useCallback(() => {
+    setDishModalMode("create");
+    setEditingDish(null);
+    setIsDishModalOpen(true);
+  }, []);
 
-  const activeDragCollection =
-    activeDragId && activeDragType === "collection"
-      ? myCollections.find((c) => `col-${c.id}` === activeDragId)
-      : null;
+  const openEditDishModal = useCallback((dish) => {
+    setDishModalMode("edit");
+    setEditingDish(dish);
+    setIsDishModalOpen(true);
+  }, []);
 
-  // Smart visibility check: true if dragging a standard dish OR a collection
-  const isDropZoneVisible =
-    (activeDragType === "dish" && activeDragDish && !activeDragDish.isCustom) ||
-    (activeDragType === "collection" && activeDragCollection);
+  const handleDeleteDishRequest = useCallback((dish) => {
+    setDishToDelete(dish);
+    setIsDeleteConfirmOpen(true);
+  }, []);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 200, tolerance: 8 },
-    }),
-  );
+  const handleEditCollectionRequest = useCallback((collection) => {
+    setEditingCollection(collection);
+    setIsCollectionModalOpen(true);
+  }, []);
+
+  const handleDeleteCollectionRequest = useCallback((collection) => {
+    setCollectionToDelete(collection);
+    setIsDeleteConfirmOpen(true);
+  }, []);
+
+  const {
+    sensors,
+    activeDragType,
+    activeDragDish,
+    activeDragCollection,
+    isDropZoneVisible,
+    handleDragStart,
+    handleDragEnd,
+    handleDragCancel,
+  } = useDashboardDnd({
+    selectedCollection,
+    myCollections,
+    customDishes,
+    onEditDish: openEditDishModal,
+    onDeleteDish: handleDeleteDishRequest,
+    onEditCollection: handleEditCollectionRequest,
+    onDeleteCollection: handleDeleteCollectionRequest,
+  });
 
   useEffect(() => {
-    if (isAuthenticated && myCollections.length === 0) {
+    if (isAuthenticated && myCollections.length === 0 && !error) {
       fetchMyCollections();
     }
-  }, [isAuthenticated, fetchMyCollections, myCollections.length]);
+  }, [isAuthenticated, fetchMyCollections, myCollections.length, error]);
 
   const selectedDishIds = useMemo(
     () => new Set(wheelDishes.map((d) => d.id)),
@@ -96,12 +126,14 @@ export default function KymDashboard() {
   );
 
   const handleCreateCollection = useCallback(
-    (e) => {
+    async (e) => {
       e.preventDefault();
       if (newCollectionName.trim()) {
-        createCollection(newCollectionName.trim());
-        setNewCollectionName("");
-        setIsCreatingCollection(false);
+        const result = await createCollection(newCollectionName.trim());
+        if (result?.success !== false) {
+          setNewCollectionName("");
+          setIsCreatingCollection(false);
+        }
       }
     },
     [newCollectionName, createCollection],
@@ -121,49 +153,6 @@ export default function KymDashboard() {
     setCustomDishes(newDishes);
   }, [customText]);
 
-  const openCreateDishModal = useCallback(() => {
-    setDishModalMode("create");
-    setEditingDish(null);
-    setIsDishModalOpen(true);
-  }, []);
-
-  const openEditDishModal = useCallback((dish) => {
-    setDishModalMode("edit");
-    setEditingDish(dish);
-    setIsDishModalOpen(true);
-  }, []);
-
-  const handleDragStart = (event) => {
-    setActiveDragId(event.active.id);
-    setActiveDragType(event.active.data.current?.type);
-  };
-
-  const handleDragEnd = (event) => {
-    const { active, over } = event;
-    setActiveDragId(null);
-    setActiveDragType(null);
-
-    if (over && active.data.current) {
-      const { type, dish, collection } = active.data.current;
-
-      if (type === "dish" && !dish.isCustom) {
-        if (over.id === "edit-drop") openEditDishModal(dish);
-        else if (over.id === "delete-drop") {
-          setDishToDelete(dish);
-          setIsDeleteConfirmOpen(true);
-        }
-      } else if (type === "collection") {
-        if (over.id === "edit-drop") {
-          setEditingCollection(collection);
-          setIsCollectionModalOpen(true);
-        } else if (over.id === "delete-drop") {
-          setCollectionToDelete(collection);
-          setIsDeleteConfirmOpen(true);
-        }
-      }
-    }
-  };
-
   const handleDeleteConfirm = async () => {
     if (dishToDelete) {
       await deleteDish(dishToDelete.id);
@@ -182,113 +171,163 @@ export default function KymDashboard() {
         collisionDetection={pointerWithin}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
-        onDragCancel={() => {
-          setActiveDragId(null);
-          setActiveDragType(null);
-        }}
+        onDragCancel={handleDragCancel}
       >
         {/* Mobile View Toggle Bar */}
-        <div className="flex lg:hidden mb-3 bg-earth-green/20 p-1 rounded-xl border border-earth-rust/30">
+        <div className="flex lg:hidden mb-3 bg-white p-1 rounded-2xl border border-earth-rust/15 shadow-xs">
           <button
             onClick={() => setMobileView("wheel")}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+            aria-pressed={mobileView === "wheel"}
+            className={`flex-1 py-2.5 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
               mobileView === "wheel"
-                ? "bg-earth-rust text-earth-beige shadow"
-                : "text-earth-maroon hover:bg-earth-beige/50"
+                ? "bg-earth-rust text-white shadow-xs"
+                : "text-earth-maroon/70 hover:text-earth-maroon hover:bg-earth-beige/50"
             }`}
           >
-            🎡 Spin Wheel ({wheelDishes.length})
+            <WheelIcon className="w-3.5 h-3.5" />
+            <span>Spin Wheel ({wheelDishes.length})</span>
           </button>
           <button
             onClick={() => setMobileView("inventory")}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+            aria-pressed={mobileView === "inventory"}
+            className={`flex-1 py-2.5 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
               mobileView === "inventory"
-                ? "bg-earth-rust text-earth-beige shadow"
-                : "text-earth-maroon hover:bg-earth-beige/50"
+                ? "bg-earth-rust text-white shadow-xs"
+                : "text-earth-maroon/70 hover:text-earth-maroon hover:bg-earth-beige/50"
             }`}
           >
-            🎒 Menus & Inventory
+            <BookMenuIcon className="w-3.5 h-3.5" />
+            <span>Menus & Items</span>
           </button>
         </div>
 
         {/* Main Dashboard Container */}
-        <div className="flex flex-col lg:flex-row h-[calc(100vh-8.5vmax)] lg:h-[calc(100vh-7rem)] bg-white border border-earth-rust/30 rounded-2xl shadow-xl overflow-hidden font-sans text-earth-maroon">
+        <div className="flex flex-col lg:flex-row h-[calc(100dvh-8.5vmax)] lg:h-[calc(100dvh-7.5rem)] bg-white/90 backdrop-blur-md border border-earth-rust/20 rounded-3xl shadow-xl overflow-hidden font-sans text-earth-maroon">
           {/* Sidebar / Inventory Area */}
           <div
-            className={`w-full lg:w-5/12 xl:w-4/12 bg-earth-beige/40 border-r border-earth-rust/20 flex flex-col h-full ${
+            className={`w-full lg:w-5/12 xl:w-4/12 bg-earth-beige/30 border-r border-earth-rust/15 flex flex-col h-full ${
               mobileView === "inventory" ? "flex" : "hidden lg:flex"
             }`}
           >
-            {/* Tabs */}
-            <div className="flex border-b border-earth-rust/20 bg-earth-green/10 shrink-0">
-              <button
-                onClick={() => setActiveTab("custom")}
-                className={`flex-1 py-3 px-3 font-bold text-xs transition-all border-r border-earth-rust/20 ${
-                  activeTab === "custom"
-                    ? "bg-white text-earth-maroon shadow-sm"
-                    : "text-earth-maroon/60 hover:bg-white/40"
-                }`}
+            {/* Segmented Pill Tabs */}
+            <div className="p-3 border-b border-earth-rust/10 bg-white/60 shrink-0">
+              <div
+                role="tablist"
+                aria-label="Menu types"
+                className="flex p-1 bg-earth-beige/80 rounded-2xl border border-earth-rust/10"
               >
-                Custom Menu
-              </button>
-              <button
-                onClick={() => setActiveTab("my")}
-                className={`flex-1 py-3 px-3 font-bold text-xs transition-all ${
-                  activeTab === "my"
-                    ? "bg-white text-earth-maroon shadow-sm"
-                    : "text-earth-maroon/60 hover:bg-white/40"
-                }`}
-              >
-                My Collections
-              </button>
+                <button
+                  role="tab"
+                  id="tab-my"
+                  aria-selected={activeTab === "my"}
+                  aria-controls="panel-my"
+                  onClick={() => setActiveTab("my")}
+                  className={`flex-1 py-2 px-3 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                    activeTab === "my"
+                      ? "bg-white text-earth-maroon shadow-xs"
+                      : "text-earth-maroon/60 hover:text-earth-maroon"
+                  }`}
+                >
+                  <BookMenuIcon className="w-3.5 h-3.5" />
+                  <span>My Collections</span>
+                </button>
+                <button
+                  role="tab"
+                  id="tab-custom"
+                  aria-selected={activeTab === "custom"}
+                  aria-controls="panel-custom"
+                  onClick={() => setActiveTab("custom")}
+                  className={`flex-1 py-2 px-3 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                    activeTab === "custom"
+                      ? "bg-white text-earth-maroon shadow-xs"
+                      : "text-earth-maroon/60 hover:text-earth-maroon"
+                  }`}
+                >
+                  <MagicWandIcon className="w-3.5 h-3.5" />
+                  <span>Quick List</span>
+                </button>
+              </div>
             </div>
 
             {/* Scrollable Sidebar Content Area */}
             <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+              {/* Error banner if present */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-3.5 py-2.5 rounded-2xl text-xs flex justify-between items-center animate-in fade-in">
+                  <span>{error}</span>
+                  <div className="flex gap-2 items-center">
+                    <button
+                      onClick={retryFetchMyCollections}
+                      className="font-bold underline hover:text-red-900"
+                    >
+                      Retry
+                    </button>
+                    <button
+                      onClick={clearError}
+                      aria-label="Dismiss error"
+                      className="text-red-500 hover:text-red-800 ml-1 font-bold"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Single Universal Drop Zone Bar */}
               <div
                 className={`flex gap-2 transition-all duration-200 overflow-hidden shrink-0 ${
                   isDropZoneVisible
-                    ? "h-16 opacity-100 mb-1"
+                    ? "h-14 opacity-100 mb-1"
                     : "h-0 opacity-0 mb-0"
                 }`}
               >
                 <DropZone id="edit-drop" type="edit">
-                  <span className="text-xs font-bold text-earth-maroon">
-                    🔧 Edit
-                  </span>
+                  <EditPencilIcon className="w-3.5 h-3.5" />
+                  <span>Edit Item</span>
                 </DropZone>
                 <DropZone id="delete-drop" type="delete">
-                  <span className="text-xs font-bold text-red-700">
-                    🗑️ Trash
-                  </span>
+                  <TrashIcon className="w-3.5 h-3.5" />
+                  <span>Remove Item</span>
                 </DropZone>
               </div>
 
               {activeTab === "custom" ? (
-                /* CUSTOM MENU VIEW */
-                <div className="flex flex-col gap-3 h-full">
-                  <div className="bg-white p-3 rounded-xl border border-earth-rust/20 shadow-sm flex flex-col gap-2 shrink-0">
-                    <label className="text-xs font-bold text-earth-maroon">
-                      Enter dishes (one per line):
+                /* QUICK / CUSTOM MENU VIEW */
+                <div
+                  role="tabpanel"
+                  id="panel-custom"
+                  aria-labelledby="tab-custom"
+                  className="flex flex-col gap-3 h-full"
+                >
+                  <div className="bg-white p-4 rounded-3xl border border-earth-rust/15 shadow-xs flex flex-col gap-2.5 shrink-0">
+                    <label
+                      htmlFor="custom-menu-input"
+                      className="text-xs font-bold text-earth-maroon flex items-center justify-between"
+                    >
+                      <span>Enter dishes (one per line):</span>
+                      <span className="text-[10px] text-earth-maroon/50 font-normal">
+                        e.g. Matcha latte, Udon
+                      </span>
                     </label>
                     <textarea
-                      className="w-full bg-earth-beige/20 border border-earth-rust/40 rounded-lg p-2 text-xs text-earth-maroon focus:outline-none focus:border-earth-rust resize-none h-28"
-                      placeholder="fries&#10;boba tea&#10;pho&#10;seafood boil"
+                      id="custom-menu-input"
+                      className="w-full bg-earth-beige/30 border border-earth-rust/25 rounded-2xl p-3 text-xs text-earth-maroon focus:outline-none focus:border-earth-rust focus:ring-2 focus:ring-earth-rust/20 resize-none h-28 leading-relaxed placeholder:text-earth-maroon/40"
+                      placeholder="Strawberry boba&#10;Matcha waffle&#10;Tonkatsu ramen&#10;Seafood boil"
                       value={customText}
                       onChange={(e) => setCustomText(e.target.value)}
                     />
                     <button
                       onClick={handleGenerateCustomList}
-                      className="bg-earth-rust text-earth-beige text-xs font-bold py-2 rounded-lg hover:bg-earth-maroon transition-colors"
+                      className="inline-flex items-center justify-center gap-2 bg-earth-rust text-white text-xs font-bold py-2.5 rounded-full hover:bg-earth-maroon transition-all shadow-xs active:scale-98"
                     >
-                      Generate Custom Menu
+                      <MagicWandIcon className="w-3.5 h-3.5" />
+                      <span>Generate Dishes</span>
                     </button>
                   </div>
 
                   {customDishes.length > 0 && (
                     <div className="flex-1 overflow-y-auto pr-1">
-                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 pb-3">
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5 pb-3">
                         {customDishes.map((dish) => (
                           <DraggableDishCard
                             key={dish.id}
@@ -303,32 +342,41 @@ export default function KymDashboard() {
                 </div>
               ) : !selectedCollection ? (
                 /* MY COLLECTIONS VIEW */
-                <>
+                <div
+                  role="tabpanel"
+                  id="panel-my"
+                  aria-labelledby="tab-my"
+                  className="flex flex-col gap-2.5"
+                >
                   {isAuthenticated &&
                     (isCreatingCollection ? (
                       <form
                         onSubmit={handleCreateCollection}
-                        className="p-3 bg-white rounded-xl border border-earth-rust/30 shadow-sm"
+                        className="p-3.5 bg-white rounded-3xl border border-earth-rust/25 shadow-xs"
                       >
+                        <label htmlFor="new-collection-name" className="sr-only">
+                          Collection Name
+                        </label>
                         <input
+                          id="new-collection-name"
                           autoFocus
                           type="text"
-                          placeholder="Menu name..."
-                          className="w-full bg-earth-beige/40 border border-earth-rust/40 rounded px-3 py-2 text-xs font-medium text-earth-maroon focus:outline-none focus:border-earth-rust mb-2"
+                          placeholder="Collection name (e.g., Weekend Brunch)..."
+                          className="w-full bg-earth-beige/40 border border-earth-rust/30 rounded-xl px-3 py-2 text-xs font-medium text-earth-maroon focus:outline-none focus:border-earth-rust mb-2.5"
                           value={newCollectionName}
                           onChange={(e) => setNewCollectionName(e.target.value)}
                         />
                         <div className="flex gap-2">
                           <button
                             type="submit"
-                            className="flex-1 bg-earth-rust text-earth-beige text-xs font-bold py-1.5 rounded-lg hover:bg-earth-maroon"
+                            className="flex-1 bg-earth-rust text-white text-xs font-bold py-2 rounded-full hover:bg-earth-maroon transition-colors shadow-xs"
                           >
-                            Save
+                            Save Collection
                           </button>
                           <button
                             type="button"
                             onClick={() => setIsCreatingCollection(false)}
-                            className="flex-1 bg-gray-100 text-earth-maroon text-xs font-bold py-1.5 rounded-lg hover:bg-gray-200"
+                            className="flex-1 bg-earth-beige/60 text-earth-maroon text-xs font-bold py-2 rounded-full hover:bg-earth-beige transition-colors"
                           >
                             Cancel
                           </button>
@@ -337,19 +385,32 @@ export default function KymDashboard() {
                     ) : (
                       <button
                         onClick={() => setIsCreatingCollection(true)}
-                        className="p-3 rounded-xl border border-dashed border-earth-rust/40 hover:border-earth-rust text-earth-maroon font-bold text-xs transition-all flex items-center justify-center gap-1 bg-white shadow-sm hover:bg-earth-beige/50"
+                        className="p-3.5 rounded-2xl border border-dashed border-earth-rust/30 hover:border-earth-rust text-earth-maroon font-bold text-xs transition-all flex items-center justify-center gap-2 bg-white/70 shadow-xs hover:bg-white hover:shadow-sm"
                       >
-                        <span>+</span> New Menu
+                        <PlusIcon className="w-3.5 h-3.5 text-earth-rust" />
+                        <span>Create New Collection</span>
                       </button>
                     ))}
+
+                  {/* Loading skeletons */}
+                  {isLoading && (
+                    <div className="flex flex-col gap-2.5">
+                      {[1, 2, 3].map((n) => (
+                        <div
+                          key={n}
+                          className="h-16 rounded-2xl bg-earth-beige/50 animate-pulse border border-earth-rust/10"
+                        />
+                      ))}
+                    </div>
+                  )}
 
                   {myCollections.length === 0 &&
                     !isLoading &&
                     !isCreatingCollection && (
-                      <div className="text-center font-medium text-earth-maroon/60 p-6 text-sm">
+                      <div className="text-center font-medium text-earth-maroon/60 p-8 text-xs leading-relaxed bg-white/50 rounded-3xl border border-earth-rust/10">
                         {isAuthenticated
-                          ? "No collections found."
-                          : "Log in to view collections."}
+                          ? "No collections saved yet. Create your first collection above!"
+                          : "Log in to view and save your collections."}
                       </div>
                     )}
 
@@ -359,27 +420,30 @@ export default function KymDashboard() {
                         key={col.id}
                         collection={col}
                         onClick={setSelectedCollection}
+                        onEdit={handleEditCollectionRequest}
+                        onDelete={handleDeleteCollectionRequest}
                       />
                     ))}
                   </div>
-                </>
+                </div>
               ) : (
                 /* SELECTED COLLECTION DETAILS VIEW */
                 <div className="flex flex-col gap-3 h-full">
                   <button
                     onClick={clearSelection}
-                    className="text-earth-rust font-bold text-xs flex items-center gap-1.5 px-3 py-1.5 bg-white border border-earth-rust/30 rounded-lg shadow-sm w-fit hover:bg-earth-beige transition-all"
+                    className="text-earth-rust font-bold text-xs flex items-center gap-1.5 px-3 py-1.5 bg-white border border-earth-rust/20 rounded-full shadow-xs w-fit hover:bg-earth-beige/60 transition-all"
                   >
-                    ← Back to lists
+                    <ArrowLeftIcon className="w-3 h-3" />
+                    <span>All Collections</span>
                   </button>
 
-                  <div className="bg-white p-3.5 rounded-xl border border-earth-rust/20 shadow-sm flex justify-between items-center">
+                  <div className="bg-white p-3.5 rounded-2xl border border-earth-rust/15 shadow-xs flex justify-between items-center">
                     <div>
-                      <h3 className="font-bold text-earth-maroon text-sm">
+                      <h3 className="font-extrabold text-earth-maroon text-sm tracking-tight">
                         {selectedCollection.name}
                       </h3>
                       <p className="text-[11px] text-earth-maroon/60 mt-0.5">
-                        By {selectedCollection.userName}
+                        Created by {selectedCollection.userName}
                       </p>
                     </div>
 
@@ -388,59 +452,38 @@ export default function KymDashboard() {
                         onClick={() =>
                           setWheelDishes(selectedCollection.dishes || [])
                         }
-                        className="p-1.5 text-earth-rust bg-earth-rust/10 hover:bg-earth-rust hover:text-white rounded-md transition-all shadow-sm flex items-center justify-center"
+                        className="px-2.5 py-1 text-xs font-bold text-earth-rust bg-earth-rust/10 hover:bg-earth-rust hover:text-white rounded-full transition-all shadow-xs flex items-center gap-1"
                         title="Select All Dishes"
+                        aria-label="Select all dishes for the wheel"
                       >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M9 11l3 3L22 4" />
-                          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-                        </svg>
+                        <span className="text-[11px]">Select All</span>
                       </button>
 
                       <button
                         onClick={() => setWheelDishes([])}
-                        className="p-1.5 text-earth-maroon/50 bg-earth-beige/50 hover:bg-earth-beige hover:text-earth-maroon rounded-md transition-all shadow-sm border border-earth-rust/20 flex items-center justify-center"
+                        className="px-2.5 py-1 text-xs font-medium text-earth-maroon/60 bg-earth-beige/60 hover:bg-earth-beige hover:text-earth-maroon rounded-full transition-all shadow-xs border border-earth-rust/15"
                         title="Unselect All Dishes"
+                        aria-label="Unselect all dishes"
                       >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <rect width="18" height="18" x="3" y="3" rx="2" />
-                        </svg>
+                        <span className="text-[11px]">Clear</span>
                       </button>
                     </div>
                   </div>
 
                   {/* Scrollable Grid Container for dishes */}
                   <div className="flex-1 overflow-y-auto pr-1">
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 pb-3">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5 pb-3">
                       {isCreatingDishLoading ? (
-                        <div className="aspect-square rounded-xl bg-gray-100 animate-pulse border border-earth-rust/20" />
+                        <div className="aspect-square rounded-2xl bg-earth-beige/40 animate-pulse border border-earth-rust/20" />
                       ) : (
                         <button
                           onClick={openCreateDishModal}
-                          className="aspect-square rounded-xl border border-dashed border-earth-rust/40 hover:border-earth-rust text-earth-maroon/60 hover:text-earth-maroon font-bold transition-all flex flex-col items-center justify-center gap-1 bg-white shadow-sm"
+                          className="aspect-square rounded-2xl border-2 border-dashed border-earth-rust/30 hover:border-earth-rust text-earth-maroon/70 hover:text-earth-rust font-bold transition-all flex flex-col items-center justify-center gap-1.5 bg-white/70 shadow-xs hover:bg-white"
                         >
-                          <span className="text-lg">+</span>
-                          <span className="text-[9px]">Add</span>
+                          <div className="w-7 h-7 rounded-full bg-earth-rust/10 text-earth-rust flex items-center justify-center">
+                            <PlusIcon className="w-4 h-4" />
+                          </div>
+                          <span className="text-[10px] tracking-tight">Add Dish</span>
                         </button>
                       )}
 
@@ -450,6 +493,8 @@ export default function KymDashboard() {
                           dish={dish}
                           isSelected={selectedDishIds.has(dish.id)}
                           onToggle={toggleWheelDish}
+                          onEdit={openEditDishModal}
+                          onDelete={handleDeleteDishRequest}
                         />
                       ))}
                     </div>
@@ -459,20 +504,20 @@ export default function KymDashboard() {
             </div>
           </div>
 
-          {/* Main Wheel Area */}
+          {/* Main Wheel Area with Cozy Aesthetic Presentation */}
           <div
-            className={`flex-1 flex flex-col items-center justify-center p-6 relative overflow-y-auto bg-earth-green/5 ${
+            className={`flex-1 flex flex-col items-center justify-center p-6 sm:p-8 relative overflow-y-auto bg-gradient-to-b from-white/40 to-earth-beige/20 ${
               mobileView === "wheel" ? "flex" : "hidden lg:flex"
             }`}
           >
             {wheelDishes.length > 0 ? (
               <div className="z-10 flex flex-col items-center w-full max-w-lg">
                 <div className="text-center mb-6">
-                  <h2 className="text-xl sm:text-2xl font-bold text-earth-maroon mb-1">
+                  <h2 className="text-xl sm:text-2xl font-extrabold text-earth-maroon tracking-tight font-display">
                     What should we eat?
                   </h2>
-                  <p className="text-earth-maroon/70 text-xs">
-                    {wheelDishes.length} dishes queued on the wheel
+                  <p className="text-earth-maroon/70 text-xs mt-1">
+                    {wheelDishes.length} {wheelDishes.length === 1 ? "dish" : "dishes"} on the wheel right now
                   </p>
                 </div>
 
@@ -482,14 +527,15 @@ export default function KymDashboard() {
                 />
               </div>
             ) : (
-              <div className="z-10 flex flex-col items-center justify-center text-center max-w-sm p-8 bg-white rounded-2xl border border-earth-rust/20 shadow-sm">
-                <div className="text-4xl mb-3">🍽️</div>
-                <h3 className="font-bold text-earth-maroon text-base mb-1">
-                  No dishes selected
+              <div className="z-10 flex flex-col items-center justify-center text-center max-w-sm p-8 bg-white/80 backdrop-blur-md rounded-3xl border border-earth-rust/15 shadow-sm">
+                <div className="w-14 h-14 rounded-2xl bg-earth-rust/10 text-earth-rust flex items-center justify-center mb-3.5 border border-earth-rust/15">
+                  <UtensilsIcon className="w-6 h-6" />
+                </div>
+                <h3 className="font-extrabold text-earth-maroon text-base mb-1 tracking-tight">
+                  No dishes on the tray
                 </h3>
-                <p className="text-earth-maroon/70 text-xs">
-                  Click dishes from your loaded menu on the left (or toggle to
-                  the Inventory tab) to add them to your spin wheel!
+                <p className="text-earth-maroon/65 text-xs leading-relaxed">
+                  Select dishes from your saved collections or write a quick menu on the left to spin the wheel!
                 </p>
               </div>
             )}
@@ -499,7 +545,7 @@ export default function KymDashboard() {
         {/* Custom Drag Overlay */}
         <DragOverlay dropAnimation={{ duration: 150, easing: "ease-out" }}>
           {activeDragType === "dish" && activeDragDish ? (
-            <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-earth-rust shadow-xl bg-white rotate-3">
+            <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-earth-rust shadow-xl bg-white rotate-3">
               {activeDragDish.profileImageUrl ? (
                 <img
                   src={activeDragDish.profileImageUrl}
@@ -515,7 +561,7 @@ export default function KymDashboard() {
               )}
             </div>
           ) : activeDragType === "collection" && activeDragCollection ? (
-            <div className="p-3 bg-white rounded-xl border-2 border-dashed border-earth-rust shadow-xl w-48 rotate-3 opacity-90">
+            <div className="p-3 bg-white rounded-2xl border-2 border-dashed border-earth-rust shadow-xl w-48 rotate-3 opacity-90">
               <h3 className="font-bold text-earth-maroon text-sm">
                 {activeDragCollection.name}
               </h3>
@@ -541,76 +587,24 @@ export default function KymDashboard() {
       />
 
       {/* Delete Confirmation Modal */}
-      {isDeleteConfirmOpen && (dishToDelete || collectionToDelete) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-earth-maroon/40 backdrop-blur-xs">
-          <div className="bg-earth-beige rounded-2xl border border-earth-rust/30 shadow-xl w-full max-w-xs p-6 text-center">
-            <h3 className="text-base font-bold text-earth-maroon mb-2">
-              {collectionToDelete ? "Delete Menu?" : "Delete Dish?"}
-            </h3>
-            <p className="text-xs text-earth-maroon/70 mb-5">
-              Are you sure you want to remove{" "}
-              <span className="font-semibold text-earth-maroon">
-                {collectionToDelete
-                  ? collectionToDelete.name
-                  : dishToDelete.name}
-              </span>
-              ?
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setIsDeleteConfirmOpen(false);
-                  setDishToDelete(null);
-                  setCollectionToDelete(null);
-                }}
-                className="flex-1 bg-gray-200 text-earth-maroon font-bold text-xs py-2 rounded-xl hover:bg-gray-300"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteConfirm}
-                disabled={isDeletingDishLoading}
-                className="flex-1 bg-red-600 text-white font-bold text-xs py-2 rounded-xl hover:bg-red-700 disabled:opacity-50"
-              >
-                {isDeletingDishLoading ? "Deleting..." : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteConfirmModal
+        isOpen={isDeleteConfirmOpen}
+        dishToDelete={dishToDelete}
+        collectionToDelete={collectionToDelete}
+        isDeletingDishLoading={isDeletingDishLoading}
+        onCancel={() => {
+          setIsDeleteConfirmOpen(false);
+          setDishToDelete(null);
+          setCollectionToDelete(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+      />
 
       {/* Winner Popup Modal */}
-      {winnerPopupDish && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-earth-maroon/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-earth-beige rounded-2xl border-2 border-earth-rust shadow-2xl w-full max-w-sm p-6 text-center transform animate-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 rounded-full bg-earth-rust text-earth-beige mx-auto flex items-center justify-center text-3xl mb-3 shadow-md">
-              🎉
-            </div>
-            <span className="text-[10px] font-bold tracking-widest uppercase text-earth-rust bg-earth-rust/10 px-2 py-0.5 rounded-full">
-              We Have a Winner!
-            </span>
-            <h2 className="text-2xl font-bold text-earth-maroon mt-2 mb-1">
-              {winnerPopupDish.name}
-            </h2>
-            {winnerPopupDish.categoryName && (
-              <p className="text-xs text-earth-maroon/70 mb-6">
-                Category:{" "}
-                <span className="font-semibold">
-                  {winnerPopupDish.categoryName}
-                </span>
-              </p>
-            )}
-            <div className="flex gap-3">
-              <button
-                onClick={() => setWinnerPopupDish(null)}
-                className="w-full bg-earth-rust text-earth-beige font-bold text-sm py-2.5 rounded-xl hover:bg-earth-maroon transition-colors shadow"
-              >
-                Let's Eat! 🍜
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <WinnerModal
+        dish={winnerPopupDish}
+        onClose={() => setWinnerPopupDish(null)}
+      />
     </Layout>
   );
 }
