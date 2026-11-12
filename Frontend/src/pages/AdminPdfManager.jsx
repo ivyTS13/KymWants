@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import apiClient from "../api/axios";
 import Layout from "../components/KymLayout";
+import { DocumentIcon, TrashIcon, RefreshIcon, SpinnerIcon, PlusIcon } from "../components/icons/UiIcons";
+import DeleteConfirmModal from "../components/DeleteConfirmModal";
 
 export default function AdminPdfManager() {
   const [documents, setDocuments] = useState([]);
@@ -75,7 +77,6 @@ export default function AdminPdfManager() {
     }
   };
 
-  // Triggers the actual delete API call after user confirms in modal
   const executeDelete = async () => {
     if (!documentToDelete) return;
 
@@ -94,28 +95,29 @@ export default function AdminPdfManager() {
       });
     } finally {
       setDeletingName(null);
-      setDocumentToDelete(null); // Close modal
+      setDocumentToDelete(null);
     }
   };
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-earth-maroon">PDF Knowledge Base Manager</h1>
+          <h1 className="text-3xl font-extrabold text-earth-maroon tracking-tight font-display">PDF Knowledge Base</h1>
           <p className="text-sm text-earth-maroon/70 mt-1">
-            Upload or remove PDF manuals used by the AI RAG search engine.
+            Manage culinary manuals and food guides indexed by the AI dining search engine.
           </p>
         </div>
 
         {/* Notifications */}
         {message.text && (
           <div
-            className={`p-4 rounded-lg text-sm font-medium border ${
+            role={message.type === "error" ? "alert" : "status"}
+            className={`p-4 rounded-2xl text-xs font-semibold border transition-all ${
               message.type === "error"
-                ? "bg-red-50 text-red-700 border-red-200"
-                : "bg-green-50 text-green-700 border-green-200"
+                ? "bg-red-50/90 text-red-700 border-red-200/70"
+                : "bg-earth-green/10 text-earth-green border-earth-green/20"
             }`}
           >
             {message.text}
@@ -123,83 +125,104 @@ export default function AdminPdfManager() {
         )}
 
         {/* Upload Form Card */}
-        <div className="bg-white p-6 rounded-xl border border-earth-rust/20 shadow-sm space-y-4">
-          <h2 className="text-lg font-semibold text-earth-maroon">Upload New Document</h2>
+        <div className="bg-white/90 backdrop-blur-md p-6 rounded-3xl border border-earth-rust/15 shadow-xs space-y-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-earth-rust/10 flex items-center justify-center text-earth-rust">
+              <PlusIcon className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-earth-maroon">Upload Menu or Guide</h2>
+              <p className="text-xs text-earth-maroon/60">Attach a PDF to vectorize and store in knowledge base.</p>
+            </div>
+          </div>
 
-          <form onSubmit={handleUpload} className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+          <form onSubmit={handleUpload} className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center pt-2">
             <input
               type="file"
               accept=".pdf"
+              aria-label="Select PDF file"
               onChange={handleFileChange}
-              className="flex-1 block w-full text-sm text-earth-maroon/80
+              className="flex-1 block w-full text-xs text-earth-maroon/80
                 file:mr-4 file:py-2 file:px-4
-                file:rounded-md file:border-0
-                file:text-sm file:font-semibold
+                file:rounded-full file:border-0
+                file:text-xs file:font-bold
                 file:bg-earth-beige file:text-earth-maroon
-                hover:file:bg-earth-rust/20
-                cursor-pointer border border-earth-rust/30 rounded-lg p-1.5"
+                hover:file:bg-earth-rust/15
+                cursor-pointer border border-earth-rust/20 rounded-2xl p-2 bg-white/60"
             />
 
             <button
               type="submit"
               disabled={!selectedFile || isUploading}
-              className="bg-earth-green hover:bg-earth-rust text-earth-beige px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="bg-earth-rust hover:bg-earth-maroon text-white px-5 py-2.5 rounded-full text-xs font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-xs hover:scale-[1.01] active:scale-[0.99]"
             >
               {isUploading ? (
                 <>
-                  <span className="animate-spin">🌀</span> Processing...
+                  <SpinnerIcon className="w-4 h-4 animate-spin" /> Processing...
                 </>
               ) : (
-                "Upload & Vectorize"
+                "Upload & Index"
               )}
             </button>
           </form>
         </div>
 
         {/* Existing PDFs Table */}
-        <div className="bg-white rounded-xl border border-earth-rust/20 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-earth-rust/20 flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-earth-maroon">Indexed Documents</h2>
+        <div className="bg-white/90 backdrop-blur-md rounded-3xl border border-earth-rust/15 shadow-xs overflow-hidden">
+          <div className="px-6 py-4 border-b border-earth-rust/10 bg-earth-beige/30 flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <DocumentIcon className="w-4 h-4 text-earth-rust" />
+              <h2 className="text-sm font-bold text-earth-maroon">Indexed Documents</h2>
+            </div>
             <button
               onClick={fetchDocuments}
-              className="text-xs font-semibold text-earth-rust hover:text-earth-maroon transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-earth-rust hover:text-earth-maroon transition-colors"
             >
-              Refresh List
+              <RefreshIcon className="w-3.5 h-3.5" />
+              Refresh
             </button>
           </div>
 
           {isLoading ? (
-            <div className="p-8 text-center text-earth-maroon/60 text-sm">Loading documents...</div>
+            <div className="p-12 text-center text-earth-maroon/60 text-xs flex flex-col items-center justify-center gap-2">
+              <SpinnerIcon className="w-6 h-6 text-earth-rust animate-spin" />
+              Loading documents...
+            </div>
           ) : documents.length === 0 ? (
-            <div className="p-8 text-center text-earth-maroon/60 text-sm">
-              No PDF manuals indexed in the database yet.
+            <div className="p-12 text-center text-earth-maroon/60 text-xs">
+              No PDF manuals indexed yet. Upload one above!
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-earth-maroon">
-                <thead className="bg-earth-green/50 border-b border-earth-rust/20 text-xs font-bold uppercase tracking-wider text-earth-maroon/70">
+              <table className="w-full text-left text-xs text-earth-maroon">
+                <thead className="bg-earth-beige/50 border-b border-earth-rust/10 text-2xs font-bold uppercase tracking-wider text-earth-maroon/70">
                   <tr>
-                    <th className="px-6 py-3">Document Name</th>
-                    <th className="px-6 py-3">Vector Chunks</th>
-                    <th className="px-6 py-3 text-right">Actions</th>
+                    <th className="px-6 py-3.5">Document Name</th>
+                    <th className="px-6 py-3.5">Vector Chunks</th>
+                    <th className="px-6 py-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-earth-rust/10">
                   {documents.map((doc) => (
                     <tr key={doc.documentName} className="hover:bg-earth-beige/30 transition-colors">
-                      <td className="px-6 py-4 font-medium flex items-center gap-2">
-                        <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" />
-                        </svg>
-                        {doc.documentName}
+                      <td className="px-6 py-4 font-semibold flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-earth-rust/10 flex items-center justify-center text-earth-rust shrink-0">
+                          <DocumentIcon className="w-4 h-4" />
+                        </div>
+                        <span className="truncate max-w-sm">{doc.documentName}</span>
                       </td>
-                      <td className="px-6 py-4 text-earth-maroon/80">{doc.totalChunks} chunks</td>
+                      <td className="px-6 py-4">
+                        <span className="px-2.5 py-1 rounded-full bg-earth-beige text-earth-maroon font-bold text-2xs">
+                          {doc.totalChunks} chunks
+                        </span>
+                      </td>
                       <td className="px-6 py-4 text-right">
                         <button
                           onClick={() => setDocumentToDelete(doc.documentName)}
                           disabled={deletingName === doc.documentName}
-                          className="text-red-600 hover:text-red-800 text-xs font-semibold px-3 py-1 rounded bg-red-50 hover:bg-red-100 transition-colors disabled:opacity-50"
+                          className="inline-flex items-center gap-1 text-red-600 hover:text-red-700 text-xs font-bold px-3 py-1.5 rounded-full bg-red-50 hover:bg-red-100/80 transition-all disabled:opacity-50"
                         >
+                          <TrashIcon className="w-3.5 h-3.5" />
                           Delete
                         </button>
                       </td>
@@ -212,59 +235,25 @@ export default function AdminPdfManager() {
         </div>
       </div>
 
-      {/* Custom Deletion Modal */}
-      {documentToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl border border-earth-rust/20 space-y-4">
-            {/* Modal Icon & Header */}
-            <div className="flex items-center gap-3 text-red-600">
-              <div className="p-2.5 bg-red-100 rounded-full">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-lg font-bold text-earth-maroon">Delete Document?</h3>
-            </div>
-
-            {/* Modal Description */}
-            <p className="text-sm text-earth-maroon/80 leading-relaxed">
-              Are you sure you want to delete <span className="font-semibold text-earth-maroon">"{documentToDelete}"</span>? This action will permanently remove all associated vector embeddings from the database.
-            </p>
-
-            {/* Modal Action Buttons */}
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setDocumentToDelete(null)}
-                disabled={deletingName !== null}
-                className="px-4 py-2 rounded-lg text-sm font-semibold text-earth-maroon hover:bg-earth-beige transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                onClick={executeDelete}
-                disabled={deletingName !== null}
-                className="px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors disabled:opacity-50 flex items-center gap-2 shadow-sm"
-              >
-                {deletingName ? (
-                  <>
-                    <span className="animate-spin">🌀</span> Deleting...
-                  </>
-                ) : (
-                  "Confirm Delete"
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Deletion Modal */}
+      <DeleteConfirmModal
+        isOpen={Boolean(documentToDelete)}
+        itemToDelete={documentToDelete}
+        title="Remove Document?"
+        description={
+          <>
+            Are you sure you want to delete{" "}
+            <span className="font-bold text-earth-maroon">
+              "{documentToDelete}"
+            </span>
+            ? This will permanently remove all associated vector embeddings from
+            the dining AI.
+          </>
+        }
+        isDeletingDishLoading={deletingName !== null}
+        onCancel={() => setDocumentToDelete(null)}
+        onConfirm={executeDelete}
+      />
     </Layout>
   );
 }

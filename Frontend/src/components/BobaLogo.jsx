@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function CuteGirlAvatar({ width = 120, height = 120 }) {
+export default function BobaLogo({ width = 120, height = 120 }) {
   return (
     <svg
       width={width}

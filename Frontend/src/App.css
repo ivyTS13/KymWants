@@ -1,5 +1,1 @@
-html, body, #root {
-  min-height: 100dvh;
-  background-color: #607456;
-  
-}
+/* Styles managed via index.css and Tailwind theme */
