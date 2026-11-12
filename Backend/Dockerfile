@@ -10,6 +10,8 @@ COPY Backend/KymWantsAPI.Domain/*.csproj ./Backend/KymWantsAPI.Domain/
 COPY Backend/KymWantsAPI.Application/*.csproj ./Backend/KymWantsAPI.Application/
 COPY Backend/KymWantsAPI.Infrastructure/*.csproj ./Backend/KymWantsAPI.Infrastructure/
 COPY Backend/KymWantsAPI.Presentation/*.csproj ./Backend/KymWantsAPI.Presentation/
+COPY Backend/KymWantsAPI.Application.UnitTests/*.csproj ./Backend/KymWantsAPI.Application.UnitTests/
+COPY Backend/KymWantsAPI.IntegrationTests/*.csproj ./Backend/KymWantsAPI.IntegrationTests/
 
 # Restore using the exact solution file path from /src
 RUN dotnet restore Backend/*.sln
