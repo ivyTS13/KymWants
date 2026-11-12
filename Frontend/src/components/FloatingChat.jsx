@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import apiClient from "../api/axios";
@@ -23,6 +23,28 @@ export default function FloatingChat() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isOpen]);
+
+  // Lock body scroll on mobile and handle Escape key when open
+  useEffect(() => {
+    if (isOpen) {
+      const handleKeyDown = (e) => {
+        if (e.key === "Escape") {
+          setIsOpen(false);
+        }
+      };
+      window.addEventListener("keydown", handleKeyDown);
+
+      const originalOverflow = document.body.style.overflow;
+      if (window.innerWidth < 640) {
+        document.body.style.overflow = "hidden";
+      }
+
+      return () => {
+        window.removeEventListener("keydown", handleKeyDown);
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isOpen]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -57,7 +79,8 @@ export default function FloatingChat() {
           ...prev,
           {
             role: "error",
-            content: "Couldn't reach the foodie assistant right now. Please try again in a moment.",
+            content:
+              "Couldn't reach the foodie assistant right now. Please try again in a moment.",
           },
         ]);
       }
@@ -67,12 +90,28 @@ export default function FloatingChat() {
   };
 
   return (
-    <div className="fixed bottom-5 right-5 z-50">
-      {/* Chat Window */}
+    <>
+      {/* Mobile Backdrop Overlay */}
       {isOpen && (
-        <div className="absolute bottom-16 right-0 w-[90vw] sm:w-96 bg-white border border-earth-rust/20 rounded-3xl shadow-2xl flex flex-col overflow-hidden mb-3 transition-all duration-300 h-[500px] max-h-[75vh]">
+        <div
+          onClick={() => setIsOpen(false)}
+          aria-hidden="true"
+          className="fixed inset-0 bg-earth-maroon/30 backdrop-blur-sm z-40 sm:hidden transition-opacity"
+        />
+      )}
+
+      {/* Chat Window / Mobile Drawer */}
+      {isOpen && (
+        <div
+          role="dialog"
+          aria-label="Foodie Companion Chat"
+          className="fixed inset-x-0 bottom-0 z-50 h-[85vh] sm:h-[500px] sm:max-h-[75vh] sm:w-96 sm:inset-auto sm:bottom-22 sm:right-5 bg-white border border-earth-rust/20 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300 animate-in slide-in-from-bottom"
+        >
+          {/* Mobile Drag Indicator Handle */}
+          <div className="w-10 h-1 bg-earth-maroon/20 rounded-full mx-auto my-2 sm:hidden shrink-0" />
+
           {/* Header */}
-          <div className="bg-gradient-to-r from-earth-beige via-white to-earth-rust/10 border-b border-earth-rust/15 px-4 py-3.5 flex justify-between items-center shadow-xs">
+          <div className="bg-gradient-to-r from-earth-beige via-white to-earth-rust/10 border-b border-earth-rust/15 px-4 py-3 flex justify-between items-center shadow-xs shrink-0">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-full bg-earth-rust/10 border border-earth-rust/20 flex items-center justify-center p-0.5">
                 <BobaLogo width={22} height={22} />
@@ -92,7 +131,7 @@ export default function FloatingChat() {
             <button
               onClick={() => setIsOpen(false)}
               aria-label="Close chat"
-              className="w-7 h-7 rounded-full bg-earth-beige/50 hover:bg-earth-beige text-earth-maroon/60 hover:text-earth-maroon flex items-center justify-center transition-colors text-sm"
+              className="w-7 h-7 rounded-full bg-earth-beige/50 hover:bg-earth-beige text-earth-maroon/60 hover:text-earth-maroon flex items-center justify-center transition-colors text-sm font-bold"
             >
               ×
             </button>
@@ -132,7 +171,10 @@ export default function FloatingChat() {
                           />
                         ),
                         p: ({ node: _node, ...props }) => (
-                          <p className="mb-1.5 last:mb-0 leading-relaxed" {...props} />
+                          <p
+                            className="mb-1.5 last:mb-0 leading-relaxed"
+                            {...props}
+                          />
                         ),
                         ul: ({ node: _node, ...props }) => (
                           <ul
@@ -166,7 +208,9 @@ export default function FloatingChat() {
             {isLoading && (
               <div className="flex justify-start">
                 <div className="bg-white border border-earth-rust/15 text-earth-maroon/60 rounded-2xl rounded-bl-none px-3.5 py-2 text-xs flex gap-1.5 items-center shadow-xs">
-                  <span className="text-[10px] text-earth-rust font-bold">Thinking</span>
+                  <span className="text-[10px] text-earth-rust font-bold">
+                    Thinking
+                  </span>
                   <span className="w-1.5 h-1.5 rounded-full bg-earth-rust animate-bounce" />
                   <span className="w-1.5 h-1.5 rounded-full bg-earth-rust animate-bounce delay-100" />
                   <span className="w-1.5 h-1.5 rounded-full bg-earth-rust animate-bounce delay-200" />
@@ -179,7 +223,7 @@ export default function FloatingChat() {
           {/* Input Area */}
           <form
             onSubmit={handleSendMessage}
-            className="p-3 bg-white border-t border-earth-rust/15"
+            className="p-3 bg-white border-t border-earth-rust/15 shrink-0"
           >
             <div className="flex gap-2 items-center">
               <label htmlFor="chat-input" className="sr-only">
@@ -192,7 +236,9 @@ export default function FloatingChat() {
                 onChange={(e) => setInput(e.target.value)}
                 disabled={isLoading || isLimitReached}
                 placeholder={
-                  isLimitReached ? "Daily limit reached..." : "Ask for dinner or snack ideas..."
+                  isLimitReached
+                    ? "Daily limit reached..."
+                    : "Ask for dinner or snack ideas..."
                 }
                 className="flex-1 bg-earth-beige/40 border border-earth-rust/20 rounded-full px-3.5 py-2 text-xs text-earth-maroon placeholder:text-earth-maroon/55 focus:outline-none focus:border-earth-rust focus:ring-2 focus:ring-earth-rust/20 disabled:opacity-50"
               />
@@ -217,23 +263,29 @@ export default function FloatingChat() {
         </div>
       )}
 
-      {/* Floating Toggle Button with cute boutique styling */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-13 h-13 sm:w-14 sm:h-14 bg-earth-rust hover:bg-earth-maroon text-white rounded-full shadow-lg hover:shadow-xl flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 focus:outline-none focus:ring-3 focus:ring-earth-rust/40 border-2 border-white"
-        aria-label="Toggle AI Chat"
+      {/* Floating Toggle Button */}
+      <div
+        className={`fixed bottom-5 right-5 z-50 ${
+          isOpen ? "hidden sm:flex" : "flex"
+        }`}
       >
-        {isOpen ? (
-          <span className="text-xl leading-none">×</span>
-        ) : (
-          <div className="relative">
-            <BobaLogo width={30} height={30} />
-            <span className="absolute -top-1 -right-1 text-yellow-200">
-              <SparklesIcon className="w-3 h-3 text-yellow-300" />
-            </span>
-          </div>
-        )}
-      </button>
-    </div>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="w-13 h-13 sm:w-14 sm:h-14 bg-earth-rust hover:bg-earth-maroon text-white rounded-full shadow-lg hover:shadow-xl flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 focus:outline-none focus:ring-3 focus:ring-earth-rust/40 border-2 border-white"
+          aria-label="Toggle AI Chat"
+        >
+          {isOpen ? (
+            <span className="text-xl leading-none">×</span>
+          ) : (
+            <div className="relative">
+              <BobaLogo width={30} height={30} />
+              <span className="absolute -top-1 -right-1 text-yellow-200">
+                <SparklesIcon className="w-3 h-3 text-yellow-300" />
+              </span>
+            </div>
+          )}
+        </button>
+      </div>
+    </>
   );
 }
