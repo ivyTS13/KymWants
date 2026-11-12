@@ -17,7 +17,7 @@ namespace KymWantsAPI.Infrastructure.Services
             _logger = logger;
         }
 
-        public bool IsRateLimited(string clientKey, int maxRequestsPerMinute = 20)
+        public async Task<bool> IsRateLimitedAsync(string clientKey, int maxRequestsPerMinute = 20, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -25,11 +25,11 @@ namespace KymWantsAPI.Infrastructure.Services
                 var db = _connectionMultiplexer.GetDatabase();
                 var cacheKey = $"rate_limit:{sanitizedKey}:{DateTime.UtcNow:yyyyMMddHHmm}";
 
-                long currentCount = db.StringIncrement(cacheKey);
+                long currentCount = await db.StringIncrementAsync(cacheKey);
 
                 if (currentCount == 1)
                 {
-                    db.KeyExpire(cacheKey, TimeSpan.FromMinutes(2));
+                    await db.KeyExpireAsync(cacheKey, TimeSpan.FromMinutes(2));
                 }
 
                 if (currentCount > maxRequestsPerMinute)
@@ -48,7 +48,7 @@ namespace KymWantsAPI.Infrastructure.Services
             }
         }
 
-        public bool HasAvailableTokenBudget(string clientKey, int dailyLimit )
+        public async Task<bool> HasAvailableTokenBudgetAsync(string clientKey, int dailyLimit = 10000, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -56,9 +56,8 @@ namespace KymWantsAPI.Infrastructure.Services
                 var db = _connectionMultiplexer.GetDatabase();
                 var cacheKey = $"token_budget:{sanitizedKey}:{DateTime.UtcNow:yyyyMMdd}";
 
-                var value = db.StringGet(cacheKey);
+                var value = await db.StringGetAsync(cacheKey);
 
-                // Safe parsing to prevent InvalidCastException
                 int tokensUsedToday = 0;
                 if (value.HasValue && !int.TryParse(value.ToString(), out tokensUsedToday))
                 {
@@ -84,7 +83,7 @@ namespace KymWantsAPI.Infrastructure.Services
             }
         }
 
-        public void RecordTokenUsage(string clientKey, int tokensUsed)
+        public async Task RecordTokenUsageAsync(string clientKey, int tokensUsed, CancellationToken cancellationToken = default)
         {
             if (tokensUsed <= 0) return;
 
@@ -94,11 +93,11 @@ namespace KymWantsAPI.Infrastructure.Services
                 var db = _connectionMultiplexer.GetDatabase();
                 var cacheKey = $"token_budget:{sanitizedKey}:{DateTime.UtcNow:yyyyMMdd}";
 
-                long updatedUsage = db.StringIncrement(cacheKey, tokensUsed);
+                long updatedUsage = await db.StringIncrementAsync(cacheKey, tokensUsed);
 
                 if (updatedUsage == tokensUsed)
                 {
-                    db.KeyExpire(cacheKey, TimeSpan.FromHours(25));
+                    await db.KeyExpireAsync(cacheKey, TimeSpan.FromHours(25));
                 }
 
                 _logger.LogInformation("Recorded {TokensUsed} tokens in Redis for '{ClientKey}' (Key: {CacheKey}). Total today: {Total}",
@@ -110,9 +109,6 @@ namespace KymWantsAPI.Infrastructure.Services
             }
         }
 
-        /// <summary>
-        /// Normalizes client keys (e.g., replaces IPv6 '::1' with 'localhost') to ensure key consistency in Redis.
-        /// </summary>
         private static string NormalizeClientKey(string clientKey)
         {
             if (string.IsNullOrWhiteSpace(clientKey)) return "unknown_client";

@@ -1,16 +1,14 @@
-﻿
-
-namespace KymWantsAPI.Application.Interfaces
+﻿namespace KymWantsAPI.Application.Interfaces
 {
     public interface ITokenBudgetService
     {
-        /// <summary>Checks whether a client key (IP/User) has exceeded the 20 requests/min rate limit.</summary>
-        bool IsRateLimited(string clientKey, int maxRequestsPerMinute = 20);
+        /// <summary>Checks whether a client key (IP/User) has exceeded the requests/min rate limit.</summary>
+        Task<bool> IsRateLimitedAsync(string clientKey, int maxRequestsPerMinute = 20, CancellationToken cancellationToken = default);
 
         /// <summary>Checks whether the client key is within their daily token allowance.</summary>
-        bool HasAvailableTokenBudget(string clientKey, int dailyLimit = 10000);
+        Task<bool> HasAvailableTokenBudgetAsync(string clientKey, int dailyLimit = 10000, CancellationToken cancellationToken = default);
 
         /// <summary>Records actual token consumption after a successful LLM call.</summary>
-        void RecordTokenUsage(string clientKey, int tokensUsed);
+        Task RecordTokenUsageAsync(string clientKey, int tokensUsed, CancellationToken cancellationToken = default);
     }
 }

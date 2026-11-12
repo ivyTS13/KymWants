@@ -1,6 +1,4 @@
-﻿
-
-using KymWantsAPI.Application.Interfaces;
+﻿using KymWantsAPI.Application.Interfaces;
 using KymWantsAPI.Domain.Models;
 using KymWantsAPI.Infrastructure.KymContext;
 using Microsoft.EntityFrameworkCore;
@@ -15,17 +13,19 @@ namespace KymWantsAPI.Infrastructure.Repositories
         {
             _context = context;
         }
-        public async Task<bool> ExistsAsync(int id)
+
+        public async Task<bool> ExistsAsync(int id, CancellationToken cancellationToken = default)
         {
             return await _context.Categories
-                .AnyAsync(c => c.Id == id);
+                .AnyAsync(c => c.Id == id, cancellationToken);
         }
-        public async Task<List<Category>> GetAllAsync()
+
+        public async Task<List<Category>> GetAllAsync(CancellationToken cancellationToken = default)
         {
             return await _context.Categories
                 .AsNoTracking()
                 .OrderBy(c => c.Name)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
         }
     }
 }

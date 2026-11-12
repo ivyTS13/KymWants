@@ -22,7 +22,7 @@ namespace KymWantsAPI.Infrastructure.Services
             _logger = logger;
         }
 
-        public async Task<float[]> GetEmbeddingAsync(string text)
+        public async Task<float[]> GetEmbeddingAsync(string text, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(text))
             {
@@ -44,16 +44,16 @@ namespace KymWantsAPI.Infrastructure.Services
                 _logger.LogInformation("Requesting embedding from OpenRouter using model '{Model}'. Text length: {Length} chars.", modelName, text.Length);
 
                 // Relative endpoint using BaseAddress set in Program.cs
-                var response = await _httpClient.PostAsJsonAsync("embeddings", payload);
+                var response = await _httpClient.PostAsJsonAsync("embeddings", payload, cancellationToken);
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    var errorBody = await response.Content.ReadAsStringAsync();
+                    var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
                     _logger.LogError("OpenRouter returned error {StatusCode}: {ErrorBody}", response.StatusCode, errorBody);
                     response.EnsureSuccessStatusCode();
                 }
 
-                var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+                var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: cancellationToken);
 
                 var vectorArray = json
                     .GetProperty("data")[0]

@@ -1,6 +1,5 @@
 ﻿using KymWantsAPI.Application.DTOs;
 using KymWantsAPI.Application.Interfaces;
-using KymWantsAPI.Domain.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -37,22 +36,11 @@ namespace KymWantsAPI.Presentation.Controllers
 
         [HttpPut("me")]
         [Consumes("multipart/form-data")]
-        public async Task<ActionResult<UserReadDto>> UpdateProfile([FromForm] UserUpdateDto dto)
+        public async Task<ActionResult<UserReadDto>> UpdateProfile([FromForm] UserUpdateDto dto, CancellationToken cancellationToken)
         {
-            try
-            {
-                var email = GetCurrentUserEmail();
-                var updatedUser = await _userService.UpdateProfileAsync(email, dto);
-                return Ok(updatedUser);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return StatusCode(500, new { message = ex.Message });
-            }
+            var email = GetCurrentUserEmail();
+            var updatedUser = await _userService.UpdateProfileAsync(email, dto, cancellationToken);
+            return Ok(updatedUser);
         }
     }
 }

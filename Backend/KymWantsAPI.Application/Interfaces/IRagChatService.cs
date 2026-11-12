@@ -1,11 +1,9 @@
-﻿
-
-using KymWantsAPI.Application.DTOs;
+﻿using KymWantsAPI.Application.DTOs;
 
 namespace KymWantsAPI.Application.Interfaces
 {
     public interface IRagChatService
     {
-        Task<ChatResponseDto> AskAsync(string question, string clientKey);
+        Task<ChatResponseDto> AskAsync(string question, string clientKey, CancellationToken cancellationToken = default);
     }
 }

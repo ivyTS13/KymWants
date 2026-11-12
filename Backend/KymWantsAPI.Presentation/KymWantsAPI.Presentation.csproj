@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\KymWantsAPI.Application\KymWantsAPI.Application.csproj" />
     <ProjectReference Include="..\KymWantsAPI.Infrastructure\KymWantsAPI.Infrastructure.csproj" />
   </ItemGroup>
 

@@ -1,10 +1,8 @@
-﻿
-
 using KymWantsAPI.Application.Interfaces;
 using KymWantsAPI.Domain.Models;
 using Microsoft.Extensions.Logging;
 
-namespace KymWantsAPI.Infrastructure.Services
+namespace KymWantsAPI.Application.Services
 {
     public class DocumentIngestionService : IDocumentIngestionService
     {
@@ -25,12 +23,12 @@ namespace KymWantsAPI.Infrastructure.Services
             _logger = logger;
         }
 
-        public async Task<int> IngestOrUpdatePdfAsync(Stream pdfStream, string fileName)
+        public async Task<int> IngestOrUpdatePdfAsync(Stream pdfStream, string fileName, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("Starting ingestion/update for document '{FileName}'", fileName);
 
             // 1. Delete existing chunks if this document was previously uploaded
-            await _documentRepository.DeleteChunksByDocumentNameAsync(fileName);
+            await _documentRepository.DeleteChunksByDocumentNameAsync(fileName, cancellationToken);
 
             // 2. Extract text chunks from the PDF
             var rawChunks = _pdfChunkingService.ChunkPdf(pdfStream);
@@ -44,7 +42,9 @@ namespace KymWantsAPI.Infrastructure.Services
             var chunksToSave = new List<DocumentChunk>();
             foreach (var chunk in rawChunks)
             {
-                float[] embedding = await _embeddingService.GetEmbeddingAsync(chunk.Content);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                float[] embedding = await _embeddingService.GetEmbeddingAsync(chunk.Content, cancellationToken);
 
                 chunksToSave.Add(new DocumentChunk
                 {
@@ -56,7 +56,7 @@ namespace KymWantsAPI.Infrastructure.Services
             }
 
             // 4. Save new chunks to PostgreSQL
-            await _documentRepository.AddChunksAsync(chunksToSave);
+            await _documentRepository.AddChunksAsync(chunksToSave, cancellationToken);
             _logger.LogInformation("Successfully ingested '{FileName}' with {ChunkCount} chunks.", fileName, chunksToSave.Count);
 
             return chunksToSave.Count;

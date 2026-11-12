@@ -1,6 +1,5 @@
 ﻿using KymWantsAPI.Application.DTOs;
 using KymWantsAPI.Application.Interfaces;
-using KymWantsAPI.Domain.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -35,77 +34,43 @@ namespace KymWantsAPI.Presentation.Controllers
         }
 
         [HttpGet("{id:guid}")]
-        public async Task<ActionResult<DishResponseDto>> GetById(Guid id)
+        public async Task<ActionResult<DishResponseDto>> GetById(Guid id, CancellationToken cancellationToken)
         {
-            var dish = await _dishService.GetByIdAsync(id);
-            if (dish == null) return NotFound(new { message = "Dish not found." });
+            var dish = await _dishService.GetByIdAsync(id, cancellationToken);
             return Ok(dish);
         }
 
         [HttpGet("collection/{collectionId:guid}")]
-        public async Task<ActionResult<List<DishResponseDto>>> GetByCollection(Guid collectionId)
+        public async Task<ActionResult<List<DishResponseDto>>> GetByCollection(Guid collectionId, CancellationToken cancellationToken)
         {
-            var dishes = await _dishService.GetByCollectionIdAsync(collectionId);
+            var dishes = await _dishService.GetByCollectionIdAsync(collectionId, cancellationToken);
             return Ok(dishes);
         }
 
         [HttpPost]
         [Consumes("multipart/form-data")]
-        public async Task<ActionResult<DishResponseDto>> Create([FromForm] CreateDishDto dto)
+        public async Task<ActionResult<DishResponseDto>> Create([FromForm] CreateDishDto dto, CancellationToken cancellationToken)
         {
-            try
-            {
-                var userId = GetCurrentUserId();
-                var created = await _dishService.CreateAsync(dto, userId);
-                return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return StatusCode(403, new { message = ex.Message });
-            }
+            var userId = GetCurrentUserId();
+            var created = await _dishService.CreateAsync(dto, userId, cancellationToken);
+            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
         }
 
         [HttpPut("{id:guid}")]
         [Consumes("multipart/form-data")]
-        public async Task<ActionResult<DishResponseDto>> Update(Guid id, [FromForm] UpdateDishDto dto)
+        public async Task<ActionResult<DishResponseDto>> Update(Guid id, [FromForm] UpdateDishDto dto, CancellationToken cancellationToken)
         {
-            try
-            {
-                var userId = GetCurrentUserId();
-                var updated = await _dishService.UpdateAsync(id, dto, userId);
-                return Ok(updated);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return StatusCode(403, new { message = ex.Message });
-            }
+            var userId = GetCurrentUserId();
+            var updated = await _dishService.UpdateAsync(id, dto, userId, cancellationToken);
+            return Ok(updated);
         }
 
         [HttpDelete("{id:guid}")]
-        public async Task<IActionResult> Delete(Guid id)
+        public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
         {
-            try
-            {
-                var userId = GetCurrentUserId();
-                await _dishService.DeleteAsync(id, userId);
-                return NoContent();
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return StatusCode(403, new { message = ex.Message });
-            }
+            var userId = GetCurrentUserId();
+            await _dishService.DeleteAsync(id, userId, cancellationToken);
+            return NoContent();
         }
     }
 }

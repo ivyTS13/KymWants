@@ -35,81 +35,50 @@ namespace KymWantsAPI.Presentation.Controllers
 
         [HttpGet("shared")]
         [AllowAnonymous]
-        public async Task<ActionResult<List<CollectionResponseDto>>> GetSharedCollections()
+        public async Task<ActionResult<List<CollectionResponseDto>>> GetSharedCollections(CancellationToken cancellationToken)
         {
-            var result = await _collectionService.GetAllSharedAsync();
+            var result = await _collectionService.GetAllSharedAsync(cancellationToken);
             return Ok(result);
         }
 
         [HttpGet("me")]
-        public async Task<ActionResult<List<CollectionResponseDto>>> GetMyCollections()
+        public async Task<ActionResult<List<CollectionResponseDto>>> GetMyCollections(CancellationToken cancellationToken)
         {
             var userId = GetCurrentUserId();
-            var result = await _collectionService.GetMyCollectionsAsync(userId);
+            var result = await _collectionService.GetMyCollectionsAsync(userId, cancellationToken);
             return Ok(result);
         }
 
         [HttpGet("{id:guid}")]
-        public async Task<ActionResult<CollectionResponseDto>> GetById(Guid id)
+        public async Task<ActionResult<CollectionResponseDto>> GetById(Guid id, CancellationToken cancellationToken)
         {
-            try
-            {
-                var userId = GetCurrentUserId();
-                var result = await _collectionService.GetByIdAsync(id, userId);
-
-                if (result == null) return NotFound(new { message = "Collection not found." });
-                return Ok(result);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return StatusCode(403, new { message = ex.Message });
-            }
+            var userId = GetCurrentUserId();
+            var result = await _collectionService.GetByIdAsync(id, userId, cancellationToken);
+            return Ok(result);
         }
 
         [HttpPost]
-        public async Task<ActionResult<CollectionResponseDto>> Create([FromBody] CreateCollectionDto dto)
+        public async Task<ActionResult<CollectionResponseDto>> Create([FromBody] CreateCollectionDto dto, CancellationToken cancellationToken)
         {
             var userId = GetCurrentUserId();
-            var created = await _collectionService.CreateAsync(dto, userId);
+            var created = await _collectionService.CreateAsync(dto, userId, cancellationToken);
             return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
         }
 
         [HttpPut("{id:guid}")]
-        public async Task<ActionResult<CollectionResponseDto>> Update(Guid id, [FromBody] UpdateCollectionDto dto)
+        public async Task<ActionResult<CollectionResponseDto>> Update(Guid id, [FromBody] UpdateCollectionDto dto, CancellationToken cancellationToken)
         {
-            try
-            {
-                var userId = GetCurrentUserId();
-                var updated = await _collectionService.UpdateAsync(id, dto, userId);
-                return Ok(updated);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return StatusCode(403, new { message = ex.Message });
-            }
+            var userId = GetCurrentUserId();
+            var updated = await _collectionService.UpdateAsync(id, dto, userId, cancellationToken);
+            return Ok(updated);
         }
 
         [HttpDelete("{id:guid}")]
-        public async Task<IActionResult> Delete(Guid id)
+        public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
         {
-            try
-            {
-                var userId = GetCurrentUserId();
-                await _collectionService.DeleteAsync(id, userId);
-                return NoContent();
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return StatusCode(403, new { message = ex.Message });
-            }
+            var userId = GetCurrentUserId();
+            await _collectionService.DeleteAsync(id, userId, cancellationToken);
+            return NoContent();
         }
     }
 }

@@ -32,7 +32,8 @@ namespace KymWantsAPI.Infrastructure.Services
             IFormFile file,
             string fileName,
             string folder,
-            List<string>? tags = null)
+            List<string>? tags = null,
+            CancellationToken cancellationToken = default)
         {
             using var stream = file.OpenReadStream();
 

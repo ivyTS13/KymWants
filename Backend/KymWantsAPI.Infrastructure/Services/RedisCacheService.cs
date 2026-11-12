@@ -1,5 +1,4 @@
-﻿
-using KymWantsAPI.Application.Interfaces;
+﻿using KymWantsAPI.Application.Interfaces;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
@@ -23,11 +22,11 @@ namespace KymWantsAPI.Infrastructure.Services
             _logger = logger;
         }
 
-        public async Task<T?> GetAsync<T>(string key)
+        public async Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default)
         {
             try
             {
-                var cachedData = await _cache.GetStringAsync(key);
+                var cachedData = await _cache.GetStringAsync(key, cancellationToken);
                 if (cachedData == null) return default;
 
                 return JsonSerializer.Deserialize<T>(cachedData);
@@ -39,7 +38,7 @@ namespace KymWantsAPI.Infrastructure.Services
             }
         }
 
-        public async Task SetAsync<T>(string key, T data, TimeSpan? absoluteExpireTime = null, TimeSpan? slidingExpireTime = null)
+        public async Task SetAsync<T>(string key, T data, TimeSpan? absoluteExpireTime = null, TimeSpan? slidingExpireTime = null, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -50,7 +49,7 @@ namespace KymWantsAPI.Infrastructure.Services
                 };
 
                 var serializedData = JsonSerializer.Serialize(data);
-                await _cache.SetStringAsync(key, serializedData, options);
+                await _cache.SetStringAsync(key, serializedData, options, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -58,11 +57,11 @@ namespace KymWantsAPI.Infrastructure.Services
             }
         }
 
-        public async Task RemoveAsync(string key)
+        public async Task RemoveAsync(string key, CancellationToken cancellationToken = default)
         {
             try
             {
-                await _cache.RemoveAsync(key);
+                await _cache.RemoveAsync(key, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -70,24 +69,20 @@ namespace KymWantsAPI.Infrastructure.Services
             }
         }
 
-        public async Task RemoveByPatternAsync(string pattern)
+        public async Task RemoveByPatternAsync(string pattern, CancellationToken cancellationToken = default)
         {
             try
             {
-                // If you use a cache instance name prefix globally, make sure to handle it or ensure pattern matches correctly.
-                // Using SCAN instead of KEYS is safer for production environments.
                 foreach (var endpoint in _connectionMultiplexer.GetEndPoints())
                 {
                     var server = _connectionMultiplexer.GetServer(endpoint);
-
-                    // Skip replicas/slaves if running in a cluster/replication setup
                     if (server.IsReplica) continue;
 
                     var db = _connectionMultiplexer.GetDatabase();
 
-                    // Iterate keys matching the pattern safely using SCAN
                     await foreach (var key in server.KeysAsync(pattern: $"*{pattern}*"))
                     {
+                        if (cancellationToken.IsCancellationRequested) break;
                         await db.KeyDeleteAsync(key);
                     }
                 }
@@ -97,12 +92,13 @@ namespace KymWantsAPI.Infrastructure.Services
                 _logger.LogWarning(ex, "Redis Cache RemoveByPattern Failed for pattern {Pattern}", pattern);
             }
         }
-        public async Task InvalidateUserCacheAsync(Guid userId)
+
+        public async Task InvalidateUserCacheAsync(Guid userId, CancellationToken cancellationToken = default)
         {
             try
             {
                 string cacheKey = $"collection_{userId}";
-                await RemoveAsync(cacheKey);
+                await RemoveAsync(cacheKey, cancellationToken);
             }
             catch (Exception ex)
             {

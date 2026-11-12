@@ -1,11 +1,9 @@
-﻿
-
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 
 namespace KymWantsAPI.Application.Interfaces
 {
     public interface IImageStorageService
     {
-        Task<string> UploadImageAsync(IFormFile file, string fileName, string folder, List<string>? tags = null);
+        Task<string> UploadImageAsync(IFormFile file, string fileName, string folder, List<string>? tags = null, CancellationToken cancellationToken = default);
     }
 }
