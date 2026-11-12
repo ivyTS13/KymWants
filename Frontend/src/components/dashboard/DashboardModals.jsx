@@ -3,57 +3,55 @@ import CollectionModal from "../CollectionModal";
 import DeleteConfirmModal from "../DeleteConfirmModal";
 import WinnerModal from "../WinnerModal";
 
+/**
+ * Decoupled modal container for dashboard flows.
+ * Receives grouped domain states instead of 17+ loose primitive props.
+ */
 export default function DashboardModals({
-  isDishModalOpen,
+  dishModal,
   onCloseDishModal,
-  dishModalMode,
-  selectedCollection,
-  editingDish,
-  isCollectionModalOpen,
+  selectedCollectionId,
+  collectionModal,
   onCloseCollectionModal,
-  editingCollection,
-  isDeleteConfirmOpen,
-  dishToDelete,
-  collectionToDelete,
-  isDeletingDishLoading,
+  deleteTarget,
+  isDeleting,
   onCancelDelete,
   onConfirmDelete,
-  winnerPopupDish,
+  winnerDish,
   onCloseWinnerModal,
 }) {
   return (
     <>
       {/* Dish Creation/Edit Modal */}
       <DishModal
-        isOpen={isDishModalOpen}
+        isOpen={Boolean(dishModal?.isOpen)}
         onClose={onCloseDishModal}
-        mode={dishModalMode}
-        collectionId={selectedCollection?.id}
-        initialDish={editingDish}
+        mode={dishModal?.mode || "create"}
+        collectionId={selectedCollectionId}
+        initialDish={dishModal?.dish}
       />
 
       {/* Collection Edit Modal */}
       <CollectionModal
-        isOpen={isCollectionModalOpen}
+        isOpen={Boolean(collectionModal?.isOpen)}
         onClose={onCloseCollectionModal}
-        initialCollection={editingCollection}
+        initialCollection={collectionModal?.collection}
       />
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmModal
-        isOpen={isDeleteConfirmOpen}
-        dishToDelete={dishToDelete}
-        collectionToDelete={collectionToDelete}
-        isDeletingDishLoading={isDeletingDishLoading}
+        isOpen={Boolean(deleteTarget?.isOpen)}
+        dishToDelete={deleteTarget?.type === "dish" ? deleteTarget.item : null}
+        collectionToDelete={
+          deleteTarget?.type === "collection" ? deleteTarget.item : null
+        }
+        isDeletingDishLoading={isDeleting}
         onCancel={onCancelDelete}
         onConfirm={onConfirmDelete}
       />
 
       {/* Winner Popup Modal */}
-      <WinnerModal
-        dish={winnerPopupDish}
-        onClose={onCloseWinnerModal}
-      />
+      <WinnerModal dish={winnerDish} onClose={onCloseWinnerModal} />
     </>
   );
 }

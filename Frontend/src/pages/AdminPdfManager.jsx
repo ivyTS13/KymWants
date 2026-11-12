@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import apiClient from "../api/axios";
 import Layout from "../components/KymLayout";
 import { DocumentIcon, TrashIcon, RefreshIcon, SpinnerIcon, PlusIcon } from "../components/icons/UiIcons";
-import useFocusTrap from "../hooks/useFocusTrap";
+import DeleteConfirmModal from "../components/DeleteConfirmModal";
 
 export default function AdminPdfManager() {
   const [documents, setDocuments] = useState([]);
@@ -13,7 +13,6 @@ export default function AdminPdfManager() {
 
   // Modal State for Custom Delete Confirmation
   const [documentToDelete, setDocumentToDelete] = useState(null);
-  const focusTrapRef = useFocusTrap(!!documentToDelete);
 
   const [message, setMessage] = useState({ type: "", text: "" });
 
@@ -35,16 +34,6 @@ export default function AdminPdfManager() {
   useEffect(() => {
     fetchDocuments();
   }, []);
-
-  // Escape key handler for delete modal
-  useEffect(() => {
-    if (!documentToDelete) return;
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape") setDocumentToDelete(null);
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [documentToDelete]);
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -246,65 +235,25 @@ export default function AdminPdfManager() {
         </div>
       </div>
 
-      {/* Custom Deletion Modal */}
-      {documentToDelete && (
-        <div
-          ref={focusTrapRef}
-          onClick={(e) => {
-            if (e.target === e.currentTarget && deletingName === null) {
-              setDocumentToDelete(null);
-            }
-          }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-earth-maroon/40 backdrop-blur-sm animate-fade-in"
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="delete-pdf-title"
-            className="bg-white rounded-3xl max-w-md w-full p-6 shadow-xl border border-earth-rust/15 space-y-4"
-          >
-            {/* Modal Icon & Header */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center" aria-hidden="true">
-                <TrashIcon className="w-5 h-5" />
-              </div>
-              <h3 id="delete-pdf-title" className="text-lg font-bold text-earth-maroon">Remove Document?</h3>
-            </div>
-
-            {/* Modal Description */}
-            <p className="text-xs text-earth-maroon/75 leading-relaxed">
-              Are you sure you want to delete <span className="font-bold text-earth-maroon">"{documentToDelete}"</span>? This will permanently remove all associated vector embeddings from the dining AI.
-            </p>
-
-            {/* Modal Action Buttons */}
-            <div className="flex justify-end gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => setDocumentToDelete(null)}
-                disabled={deletingName !== null}
-                className="px-4 py-2 rounded-full text-xs font-bold text-earth-maroon hover:bg-earth-beige transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                onClick={executeDelete}
-                disabled={deletingName !== null}
-                className="px-5 py-2 rounded-full text-xs font-bold bg-red-600 hover:bg-red-700 text-white transition-all disabled:opacity-50 flex items-center gap-2 shadow-xs hover:scale-[1.01] active:scale-[0.99]"
-              >
-                {deletingName ? (
-                  <>
-                    <SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> Removing...
-                  </>
-                ) : (
-                  "Confirm Delete"
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Deletion Modal */}
+      <DeleteConfirmModal
+        isOpen={Boolean(documentToDelete)}
+        itemToDelete={documentToDelete}
+        title="Remove Document?"
+        description={
+          <>
+            Are you sure you want to delete{" "}
+            <span className="font-bold text-earth-maroon">
+              "{documentToDelete}"
+            </span>
+            ? This will permanently remove all associated vector embeddings from
+            the dining AI.
+          </>
+        }
+        isDeletingDishLoading={deletingName !== null}
+        onCancel={() => setDocumentToDelete(null)}
+        onConfirm={executeDelete}
+      />
     </Layout>
   );
 }

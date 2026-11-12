@@ -19,39 +19,50 @@ import {
 } from "../components/icons/UiIcons";
 
 export default function KymDashboard() {
-  const { isAuthenticated } = useUserStore();
-  const {
-    myCollections,
-    activeTab,
-    setActiveTab,
-    selectedCollection,
-    setSelectedCollection,
-    clearSelection,
-    fetchMyCollections,
-    retryFetchMyCollections,
-    createCollection,
-    deleteCollection,
-    wheelDishes,
-    toggleWheelDish,
-    setWheelDishes,
-    isLoading,
-    isCreatingDishLoading,
-    isDeletingDishLoading,
-    deleteDish,
-    error,
-    clearError,
-  } = useCollectionStore();
+  // Atomic User State Selector
+  const isAuthenticated = useUserStore((state) => state.isAuthenticated);
 
+  // Atomic Collection State Selectors
+  const myCollections = useCollectionStore((state) => state.myCollections);
+  const activeTab = useCollectionStore((state) => state.activeTab);
+  const setActiveTab = useCollectionStore((state) => state.setActiveTab);
+  const selectedCollection = useCollectionStore((state) => state.selectedCollection);
+  const setSelectedCollection = useCollectionStore((state) => state.setSelectedCollection);
+  const clearSelection = useCollectionStore((state) => state.clearSelection);
+  const fetchMyCollections = useCollectionStore((state) => state.fetchMyCollections);
+  const retryFetchMyCollections = useCollectionStore((state) => state.retryFetchMyCollections);
+  const createCollection = useCollectionStore((state) => state.createCollection);
+  const deleteCollection = useCollectionStore((state) => state.deleteCollection);
+  const wheelDishes = useCollectionStore((state) => state.wheelDishes);
+  const toggleWheelDish = useCollectionStore((state) => state.toggleWheelDish);
+  const setWheelDishes = useCollectionStore((state) => state.setWheelDishes);
+  const isLoading = useCollectionStore((state) => state.isLoading);
+  const isCreatingDishLoading = useCollectionStore((state) => state.isCreatingDishLoading);
+  const isDeletingDishLoading = useCollectionStore((state) => state.isDeletingDishLoading);
+  const deleteDish = useCollectionStore((state) => state.deleteDish);
+  const error = useCollectionStore((state) => state.error);
+  const clearError = useCollectionStore((state) => state.clearError);
+
+  // Local collection form state
   const [newCollectionName, setNewCollectionName] = useState("");
   const [isCreatingCollection, setIsCreatingCollection] = useState(false);
-  const [isDishModalOpen, setIsDishModalOpen] = useState(false);
-  const [dishModalMode, setDishModalMode] = useState("create");
-  const [editingDish, setEditingDish] = useState(null);
-  const [dishToDelete, setDishToDelete] = useState(null);
-  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-  const [isCollectionModalOpen, setIsCollectionModalOpen] = useState(false);
-  const [editingCollection, setEditingCollection] = useState(null);
-  const [collectionToDelete, setCollectionToDelete] = useState(null);
+
+  // Grouped Modal Domain States
+  const [dishModal, setDishModal] = useState({
+    isOpen: false,
+    mode: "create",
+    dish: null,
+  });
+  const [collectionModal, setCollectionModal] = useState({
+    isOpen: false,
+    collection: null,
+  });
+  const [deleteTarget, setDeleteTarget] = useState({
+    isOpen: false,
+    type: null,
+    item: null,
+  });
+  const [winnerDish, setWinnerDish] = useState(null);
 
   // Custom Tab State
   const [customText, setCustomText] = useState("");
@@ -60,35 +71,47 @@ export default function KymDashboard() {
   // Mobile view switcher state ('inventory' or 'wheel')
   const [mobileView, setMobileView] = useState("wheel");
 
-  // Winner Popup state
-  const [winnerPopupDish, setWinnerPopupDish] = useState(null);
-
+  // Modal Handlers
   const openCreateDishModal = useCallback(() => {
-    setDishModalMode("create");
-    setEditingDish(null);
-    setIsDishModalOpen(true);
+    setDishModal({ isOpen: true, mode: "create", dish: null });
   }, []);
 
   const openEditDishModal = useCallback((dish) => {
-    setDishModalMode("edit");
-    setEditingDish(dish);
-    setIsDishModalOpen(true);
+    setDishModal({ isOpen: true, mode: "edit", dish });
   }, []);
 
-  const handleDeleteDishRequest = useCallback((dish) => {
-    setDishToDelete(dish);
-    setIsDeleteConfirmOpen(true);
+  const closeDishModal = useCallback(() => {
+    setDishModal((prev) => ({ ...prev, isOpen: false }));
   }, []);
 
   const handleEditCollectionRequest = useCallback((collection) => {
-    setEditingCollection(collection);
-    setIsCollectionModalOpen(true);
+    setCollectionModal({ isOpen: true, collection });
+  }, []);
+
+  const closeCollectionModal = useCallback(() => {
+    setCollectionModal({ isOpen: false, collection: null });
+  }, []);
+
+  const handleDeleteDishRequest = useCallback((dish) => {
+    setDeleteTarget({ isOpen: true, type: "dish", item: dish });
   }, []);
 
   const handleDeleteCollectionRequest = useCallback((collection) => {
-    setCollectionToDelete(collection);
-    setIsDeleteConfirmOpen(true);
+    setDeleteTarget({ isOpen: true, type: "collection", item: collection });
   }, []);
+
+  const closeDeleteConfirm = useCallback(() => {
+    setDeleteTarget({ isOpen: false, type: null, item: null });
+  }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (deleteTarget.type === "dish" && deleteTarget.item) {
+      await deleteDish(deleteTarget.item.id);
+    } else if (deleteTarget.type === "collection" && deleteTarget.item) {
+      await deleteCollection(deleteTarget.item.id);
+    }
+    closeDeleteConfirm();
+  }, [deleteTarget, deleteDish, deleteCollection, closeDeleteConfirm]);
 
   const {
     sensors,
@@ -117,7 +140,7 @@ export default function KymDashboard() {
 
   const selectedDishIds = useMemo(
     () => new Set(wheelDishes.map((d) => d.id)),
-    [wheelDishes],
+    [wheelDishes]
   );
 
   const handleCreateCollection = useCallback(
@@ -131,7 +154,7 @@ export default function KymDashboard() {
         }
       }
     },
-    [newCollectionName, createCollection],
+    [newCollectionName, createCollection]
   );
 
   const handleGenerateCustomList = useCallback(() => {
@@ -148,16 +171,15 @@ export default function KymDashboard() {
     setCustomDishes(newDishes);
   }, [customText]);
 
-  const handleDeleteConfirm = async () => {
-    if (dishToDelete) {
-      await deleteDish(dishToDelete.id);
-      setDishToDelete(null);
-    } else if (collectionToDelete) {
-      await deleteCollection(collectionToDelete.id);
-      setCollectionToDelete(null);
+  const handleSelectAllDishes = useCallback(() => {
+    if (selectedCollection?.dishes) {
+      setWheelDishes(selectedCollection.dishes);
     }
-    setIsDeleteConfirmOpen(false);
-  };
+  }, [selectedCollection, setWheelDishes]);
+
+  const handleClearAllDishes = useCallback(() => {
+    setWheelDishes([]);
+  }, [setWheelDishes]);
 
   return (
     <Layout>
@@ -313,10 +335,8 @@ export default function KymDashboard() {
                 <DishGrid
                   selectedCollection={selectedCollection}
                   onBack={clearSelection}
-                  onSelectAll={() =>
-                    setWheelDishes(selectedCollection.dishes || [])
-                  }
-                  onClearAll={() => setWheelDishes([])}
+                  onSelectAll={handleSelectAllDishes}
+                  onClearAll={handleClearAllDishes}
                   isCreatingDishLoading={isCreatingDishLoading}
                   onOpenCreateDish={openCreateDishModal}
                   selectedDishIds={selectedDishIds}
@@ -331,7 +351,7 @@ export default function KymDashboard() {
           {/* Main Wheel Area */}
           <WheelStage
             wheelDishes={wheelDishes}
-            onWinnerSelected={setWinnerPopupDish}
+            onWinnerSelected={setWinnerDish}
             mobileView={mobileView}
           />
         </div>
@@ -364,28 +384,19 @@ export default function KymDashboard() {
         </DragOverlay>
       </DndContext>
 
-      {/* Modals Coordinator */}
+      {/* Decoupled Modals Coordinator */}
       <DashboardModals
-        isDishModalOpen={isDishModalOpen}
-        onCloseDishModal={() => setIsDishModalOpen(false)}
-        dishModalMode={dishModalMode}
-        selectedCollection={selectedCollection}
-        editingDish={editingDish}
-        isCollectionModalOpen={isCollectionModalOpen}
-        onCloseCollectionModal={() => setIsCollectionModalOpen(false)}
-        editingCollection={editingCollection}
-        isDeleteConfirmOpen={isDeleteConfirmOpen}
-        dishToDelete={dishToDelete}
-        collectionToDelete={collectionToDelete}
-        isDeletingDishLoading={isDeletingDishLoading}
-        onCancelDelete={() => {
-          setIsDeleteConfirmOpen(false);
-          setDishToDelete(null);
-          setCollectionToDelete(null);
-        }}
+        dishModal={dishModal}
+        onCloseDishModal={closeDishModal}
+        selectedCollectionId={selectedCollection?.id}
+        collectionModal={collectionModal}
+        onCloseCollectionModal={closeCollectionModal}
+        deleteTarget={deleteTarget}
+        isDeleting={isDeletingDishLoading}
+        onCancelDelete={closeDeleteConfirm}
         onConfirmDelete={handleDeleteConfirm}
-        winnerPopupDish={winnerPopupDish}
-        onCloseWinnerModal={() => setWinnerPopupDish(null)}
+        winnerDish={winnerDish}
+        onCloseWinnerModal={() => setWinnerDish(null)}
       />
     </Layout>
   );

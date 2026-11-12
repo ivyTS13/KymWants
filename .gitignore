@@ -56,3 +56,6 @@ appsettings.*.Local.json
 # Entity Framework Core tooling / local files
 *.db-shm
 *.db-wal
+
+# agents
+Frontend/.agents/skills/

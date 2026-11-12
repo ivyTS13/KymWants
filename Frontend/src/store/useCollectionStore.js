@@ -1,6 +1,27 @@
 import { create } from "zustand";
 import apiClient from "../api/axios";
 
+// Helper utilities for immutable nested collection updates
+const updateDishInCollectionList = (collections, dishId, updatedDish) =>
+  collections.map((col) => {
+    if (col.dishes?.some((d) => d.id === dishId)) {
+      return {
+        ...col,
+        dishes: col.dishes.map((d) => (d.id === dishId ? updatedDish : d)),
+      };
+    }
+    return col;
+  });
+
+const removeDishFromCollectionList = (collections, dishId) =>
+  collections.map((col) => ({
+    ...col,
+    dishes: col.dishes?.filter((d) => d.id !== dishId) || [],
+  }));
+
+const getErrorMessage = (error, fallback = "An unexpected error occurred.") =>
+  error.response?.data?.message || error.message || fallback;
+
 const useCollectionStore = create((set, get) => ({
   sharedCollections: [],
   myCollections: [],
@@ -23,7 +44,9 @@ const useCollectionStore = create((set, get) => ({
     }),
 
   clearSelection: () => set({ selectedCollection: null, wheelDishes: [] }),
+
   setWheelDishes: (dishes) => set({ wheelDishes: dishes }),
+
   toggleWheelDish: (dish) => {
     const currentDishes = get().wheelDishes;
     const isSelected = currentDishes.some((d) => d.id === dish.id);
@@ -42,7 +65,7 @@ const useCollectionStore = create((set, get) => ({
       const response = await apiClient.get("/Collections/shared");
       set({ sharedCollections: response.data, isLoading: false });
     } catch (error) {
-      set({ error: error.message, isLoading: false });
+      set({ error: getErrorMessage(error), isLoading: false });
     }
   },
 
@@ -52,7 +75,7 @@ const useCollectionStore = create((set, get) => ({
       const response = await apiClient.get("/Collections/me");
       set({ myCollections: response.data, isLoading: false });
     } catch (error) {
-      set({ error: error.message, isLoading: false });
+      set({ error: getErrorMessage(error), isLoading: false });
     }
   },
 
@@ -72,8 +95,9 @@ const useCollectionStore = create((set, get) => ({
       return { success: true };
     } catch (error) {
       console.error("Failed to create collection", error);
-      set({ error: error.message });
-      return { success: false, error: error.message };
+      const errMsg = getErrorMessage(error, "Failed to create collection");
+      set({ error: errMsg });
+      return { success: false, error: errMsg };
     }
   },
 
@@ -83,7 +107,7 @@ const useCollectionStore = create((set, get) => ({
       const formData = new FormData();
       formData.append("name", dishData.name);
       formData.append("description", dishData.description || "");
-      formData.append("categoryId", 1);
+      formData.append("categoryId", dishData.categoryId || 1);
       formData.append("collectionId", collectionId);
       if (dishData.profileImage) {
         formData.append("ProfileImageUrl", dishData.profileImage);
@@ -95,7 +119,7 @@ const useCollectionStore = create((set, get) => ({
 
       const newDish = response.data;
 
-      // Update selectedCollection
+      // Update selectedCollection if matching
       const currentSelected = get().selectedCollection;
       if (currentSelected && currentSelected.id === collectionId) {
         set({
@@ -113,12 +137,25 @@ const useCollectionStore = create((set, get) => ({
         }
         return col;
       });
-      set({ myCollections: updatedCollections });
+
+      // Update sharedCollections if present
+      const updatedShared = get().sharedCollections.map((col) => {
+        if (col.id === collectionId) {
+          return { ...col, dishes: [...(col.dishes || []), newDish] };
+        }
+        return col;
+      });
+
+      set({
+        myCollections: updatedCollections,
+        sharedCollections: updatedShared,
+      });
       return { success: true };
     } catch (error) {
       console.error("Failed to add dish", error);
-      set({ error: error.message });
-      return { success: false, error: error.message };
+      const errMsg = getErrorMessage(error, "Failed to add dish");
+      set({ error: errMsg });
+      return { success: false, error: errMsg };
     } finally {
       set({ isCreatingDishLoading: false });
     }
@@ -130,7 +167,7 @@ const useCollectionStore = create((set, get) => ({
       const formData = new FormData();
       formData.append("name", dishData.name);
       formData.append("description", dishData.description || "");
-      formData.append("categoryId", dishData.categoryId);
+      formData.append("categoryId", dishData.categoryId || 1);
       if (dishData.profileImage) {
         formData.append("ProfileImageUrl", dishData.profileImage);
       }
@@ -148,28 +185,35 @@ const useCollectionStore = create((set, get) => ({
           selectedCollection: {
             ...currentSelected,
             dishes: currentSelected.dishes?.map((d) =>
-              d.id === dishId ? updatedDish : d,
+              d.id === dishId ? updatedDish : d
             ),
           },
         });
       }
 
-      // Update myCollections
-      const updatedCollections = get().myCollections.map((col) => {
-        if (col.dishes?.some((d) => d.id === dishId)) {
-          return {
-            ...col,
-            dishes: col.dishes.map((d) => (d.id === dishId ? updatedDish : d)),
-          };
-        }
-        return col;
-      });
-      set({ myCollections: updatedCollections });
+      // Update myCollections & sharedCollections safely
+      set((state) => ({
+        myCollections: updateDishInCollectionList(
+          state.myCollections,
+          dishId,
+          updatedDish
+        ),
+        sharedCollections: updateDishInCollectionList(
+          state.sharedCollections,
+          dishId,
+          updatedDish
+        ),
+        wheelDishes: state.wheelDishes.map((d) =>
+          d.id === dishId ? updatedDish : d
+        ),
+      }));
+
       return { success: true };
     } catch (error) {
       console.error("Failed to update dish", error);
-      set({ error: error.message });
-      return { success: false, error: error.message };
+      const errMsg = getErrorMessage(error, "Failed to update dish");
+      set({ error: errMsg });
+      return { success: false, error: errMsg };
     } finally {
       set({ isUpdatingDishLoading: false });
     }
@@ -179,26 +223,29 @@ const useCollectionStore = create((set, get) => ({
     try {
       const response = await apiClient.put(`/Collections/${collectionId}`, {
         name: newName,
-        isShared: false
+        isShared: false,
       });
 
       const updatedCollection = response.data;
 
-      // Update in lists
       set((state) => ({
         myCollections: state.myCollections.map((c) =>
           c.id === collectionId ? { ...c, name: updatedCollection.name } : c
         ),
-        // If it's the currently viewed collection, update its title too
-        selectedCollection: state.selectedCollection?.id === collectionId
-          ? { ...state.selectedCollection, name: updatedCollection.name }
-          : state.selectedCollection
+        sharedCollections: state.sharedCollections.map((c) =>
+          c.id === collectionId ? { ...c, name: updatedCollection.name } : c
+        ),
+        selectedCollection:
+          state.selectedCollection?.id === collectionId
+            ? { ...state.selectedCollection, name: updatedCollection.name }
+            : state.selectedCollection,
       }));
       return { success: true };
     } catch (error) {
       console.error("Failed to update collection", error);
-      set({ error: error.message });
-      return { success: false, error: error.message };
+      const errMsg = getErrorMessage(error, "Failed to update collection");
+      set({ error: errMsg });
+      return { success: false, error: errMsg };
     }
   },
 
@@ -208,14 +255,18 @@ const useCollectionStore = create((set, get) => ({
 
       set((state) => ({
         myCollections: state.myCollections.filter((c) => c.id !== collectionId),
-        // If we deleted the one we are looking at, go back to the list
-        selectedCollection: state.selectedCollection?.id === collectionId ? null : state.selectedCollection,
+        sharedCollections: state.sharedCollections.filter((c) => c.id !== collectionId),
+        selectedCollection:
+          state.selectedCollection?.id === collectionId
+            ? null
+            : state.selectedCollection,
       }));
       return { success: true };
     } catch (error) {
       console.error("Failed to delete collection", error);
-      set({ error: error.message });
-      return { success: false, error: error.message };
+      const errMsg = getErrorMessage(error, "Failed to delete collection");
+      set({ error: errMsg });
+      return { success: false, error: errMsg };
     }
   },
 
@@ -224,33 +275,32 @@ const useCollectionStore = create((set, get) => ({
     try {
       await apiClient.delete(`/Dishes/${dishId}`);
 
-      // Update selectedCollection
-      const currentSelected = get().selectedCollection;
-      if (currentSelected) {
-        set({
-          selectedCollection: {
-            ...currentSelected,
-            dishes:
-              currentSelected.dishes?.filter((d) => d.id !== dishId) || [],
-          },
-        });
-      }
-
-      // Update myCollections
-      const updatedCollections = get().myCollections.map((col) => ({
-        ...col,
-        dishes: col.dishes?.filter((d) => d.id !== dishId) || [],
+      set((state) => ({
+        selectedCollection: state.selectedCollection
+          ? {
+              ...state.selectedCollection,
+              dishes:
+                state.selectedCollection.dishes?.filter((d) => d.id !== dishId) ||
+                [],
+            }
+          : null,
+        myCollections: removeDishFromCollectionList(
+          state.myCollections,
+          dishId
+        ),
+        sharedCollections: removeDishFromCollectionList(
+          state.sharedCollections,
+          dishId
+        ),
+        wheelDishes: state.wheelDishes.filter((d) => d.id !== dishId),
       }));
-      set({ myCollections: updatedCollections });
 
-      // Remove from wheelDishes if present
-      const wheelDishes = get().wheelDishes.filter((d) => d.id !== dishId);
-      set({ wheelDishes });
       return { success: true };
     } catch (error) {
       console.error("Failed to delete dish", error);
-      set({ error: error.message });
-      return { success: false, error: error.message };
+      const errMsg = getErrorMessage(error, "Failed to delete dish");
+      set({ error: errMsg });
+      return { success: false, error: errMsg };
     } finally {
       set({ isDeletingDishLoading: false });
     }

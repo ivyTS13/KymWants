@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import useUserStore from '../store/useUserStore';
-import { PATHS } from './AppRoutes';
+import { PATHS } from './paths';
 
 /**
  * @param {Object} props

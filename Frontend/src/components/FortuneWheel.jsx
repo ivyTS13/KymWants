@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { SPIN_DURATION_MS, calculateWinnerIndex } from "../utils/wheelMath";
 import { SparklesIcon, UtensilsIcon } from "./icons/UiIcons";
 
@@ -25,6 +25,15 @@ function getContrastColor(hexColor) {
 export default function FortuneWheel({ dishes, onWinnerSelected }) {
   const [rotation, setRotation] = useState(0);
   const [isSpinning, setIsSpinning] = useState(false);
+  const spinTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (spinTimeoutRef.current) {
+        clearTimeout(spinTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const numSlices = dishes?.length || 0;
   const sliceAngle = numSlices ? 360 / numSlices : 0;
@@ -57,7 +66,8 @@ export default function FortuneWheel({ dishes, onWinnerSelected }) {
         (360 - (randomIndex * sliceAngle + sliceAngle / 2)) % 360;
       setRotation(targetRotation);
 
-      setTimeout(() => {
+      clearTimeout(spinTimeoutRef.current);
+      spinTimeoutRef.current = setTimeout(() => {
         setIsSpinning(false);
         if (onWinnerSelected && dishes[randomIndex]) {
           onWinnerSelected(dishes[randomIndex]);
@@ -74,7 +84,8 @@ export default function FortuneWheel({ dishes, onWinnerSelected }) {
 
     setRotation(newRotation);
 
-    setTimeout(() => {
+    clearTimeout(spinTimeoutRef.current);
+    spinTimeoutRef.current = setTimeout(() => {
       setIsSpinning(false);
       const winningIndex = calculateWinnerIndex(newRotation, numSlices);
 

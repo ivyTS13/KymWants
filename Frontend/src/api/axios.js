@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { PATHS } from '../router/paths';
 
 // 1. Create a configured Axios instance
 const baseURL = import.meta.env.VITE_API_URL
@@ -20,11 +21,16 @@ apiClient.interceptors.response.use(
 
     if (status === 401) {
       if (requestUrl && !requestUrl.includes('/Auth/me')) {
-        const publicPaths = ['/login', '/register', '/forgot', '/reset-password'];
+        const publicPaths = [
+          PATHS.LOGIN,
+          PATHS.REGISTER,
+          PATHS.FORGOTPASS,
+          PATHS.RESETPASSWORD,
+        ];
         const currentPath = window.location.pathname;
 
         if (!publicPaths.some((path) => currentPath.startsWith(path))) {
-          window.location.href = '/login';
+          window.location.href = PATHS.LOGIN;
         }
       }
     }

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import apiClient from "../api/axios";
 import useUserStore from "../store/useUserStore";
-import { PATHS } from "../router/AppRoutes";
+import { PATHS } from "../router/paths";
 import BobaLogo from "./BobaLogo";
 import FloatingChat from "./FloatingChat";
 

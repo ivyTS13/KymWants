@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, Link } from "react-router-dom";
 import useUserStore from "../store/useUserStore";
 import ProtectedRoute from "./ProtectedRoute";
+import { PATHS } from "./paths";
+import AuthLayout from "../components/layout/AuthLayout";
 
 import AuthPage from "../pages/AuthPage";
 import NotFoundPage from "../pages/NotFoundPage";
@@ -11,32 +13,24 @@ import ResetPasswordPage from "../pages/ResetPasswordPage";
 import ProfilePage from "../pages/ProfilePage";
 import AdminPdfManager from "../pages/AdminPdfManager";
 
-export const PATHS = {
-  LOGIN: "/login",
-  REGISTER: "/register",
-  FORGOTPASS: "/forgot",
-  DASHBOARD: "/dashboard",
-  RESETPASSWORD: "/reset-password",
-  PROFILEPAGE: "/profile",
-  DOCUMENTS: "/documents",
-  UNAUTHORIZED: "/unauthorized",
-};
+export { PATHS };
 
 function UnauthorizedPage() {
+  const icon = (
+    <div className="w-16 h-16 bg-earth-rust/10 border border-earth-rust/20 text-earth-rust rounded-2xl flex items-center justify-center shadow-xs">
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H10m2-6V7a4 4 0 00-8 0v4H3a1 1 0 00-1 1v6a1 1 0 001 1h14a1 1 0 001-1v-6a1 1 0 00-1-1h-1z" />
+      </svg>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-earth-beige via-[#F8F2EB] to-[#F1E5D8] p-4 font-sans text-center">
-      <div className="max-w-md w-full bg-white/90 backdrop-blur-md border border-earth-rust/15 rounded-3xl p-8 shadow-xl flex flex-col items-center">
-        <div className="w-16 h-16 bg-earth-rust/10 border border-earth-rust/20 text-earth-rust rounded-2xl flex items-center justify-center mb-4 shadow-xs">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H10m2-6V7a4 4 0 00-8 0v4H3a1 1 0 00-1 1v6a1 1 0 001 1h14a1 1 0 001-1v-6a1 1 0 00-1-1h-1z" />
-          </svg>
-        </div>
-
-        <h1 className="text-4xl font-extrabold text-earth-maroon tracking-tight mb-2 font-display">403</h1>
-        <p className="text-xs text-earth-maroon/70 max-w-xs mb-6 leading-relaxed">
-          You don't have superuser permission to view this section. Please return to your dining studio.
-        </p>
-
+    <AuthLayout
+      title="403"
+      subtitle="You don't have superuser permission to view this section. Please return to your dining studio."
+      icon={icon}
+    >
+      <div className="text-center pt-2">
         <Link
           to={PATHS.DASHBOARD}
           className="inline-flex items-center gap-2 bg-earth-rust text-white px-6 py-2.5 rounded-full text-xs font-bold hover:bg-earth-maroon transition-all shadow-xs hover:shadow-sm"
@@ -44,7 +38,7 @@ function UnauthorizedPage() {
           Return to Studio
         </Link>
       </div>
-    </div>
+    </AuthLayout>
   );
 }
 
