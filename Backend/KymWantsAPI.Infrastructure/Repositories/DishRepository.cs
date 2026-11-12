@@ -14,24 +14,24 @@ namespace KymWantsAPI.Infrastructure.Repositories
             _context = context;
         }
 
-        public async Task<Dish?> GetByIdAsync(Guid id)
+        public async Task<Dish?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
             return await _context.Dishes
                 .Include(d => d.Category)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(d => d.Id == id);
+                .FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
         }
 
-        public async Task<List<Dish>> GetByCollectionIdAsync(Guid collectionId)
+        public async Task<List<Dish>> GetByCollectionIdAsync(Guid collectionId, CancellationToken cancellationToken = default)
         {
             return await _context.Dishes
                 .Where(d => d.CollectionDishes.Any(cd => cd.CollectionId == collectionId))
                 .Include(d => d.Category)
                 .AsNoTracking()
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
         }
 
-        public async Task<Dish> CreateAsync(Dish dish, Guid collectionId)
+        public async Task<Dish> CreateAsync(Dish dish, Guid collectionId, CancellationToken cancellationToken = default)
         {
             _context.Dishes.Add(dish);
 
@@ -43,24 +43,21 @@ namespace KymWantsAPI.Infrastructure.Repositories
             };
             _context.CollectionDishes.Add(collectionDish);
 
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
             return dish;
         }
 
-        public async Task UpdateAsync(Dish dish)
+        public async Task UpdateAsync(Dish dish, CancellationToken cancellationToken = default)
         {
             _context.Dishes.Update(dish);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
         }
 
-        public async Task DeleteAsync(Guid id)
+        public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
         {
-            var dish = await _context.Dishes.FindAsync(id);
-            if (dish != null)
-            {
-                _context.Dishes.Remove(dish);
-                await _context.SaveChangesAsync();
-            }
+            await _context.Dishes
+                .Where(d => d.Id == id)
+                .ExecuteDeleteAsync(cancellationToken);
         }
     }
 }

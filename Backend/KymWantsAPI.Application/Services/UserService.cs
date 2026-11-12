@@ -1,12 +1,12 @@
-﻿
-
+using FluentValidation;
 using KymWantsAPI.Application.DTOs;
+using KymWantsAPI.Application.Exceptions;
 using KymWantsAPI.Application.Interfaces;
 using Mapster;
 using MapsterMapper;
 using Microsoft.Extensions.Logging;
 
-namespace KymWantsAPI.Infrastructure.Services
+namespace KymWantsAPI.Application.Services
 {
     public class UserService : IUserService
     {
@@ -14,25 +14,30 @@ namespace KymWantsAPI.Infrastructure.Services
         private readonly IImageStorageService _imageStorageService;
         private readonly IMapper _mapper;
         private readonly ILogger<UserService> _logger;
+        private readonly IValidator<UserUpdateDto> _updateValidator;
 
         public UserService(
             IUserRepository userRepository,
             IImageStorageService imageStorageService,
             IMapper mapper,
-            ILogger<UserService> logger)
+            ILogger<UserService> logger,
+            IValidator<UserUpdateDto> updateValidator)
         {
             _userRepository = userRepository;
             _imageStorageService = imageStorageService;
             _mapper = mapper;
             _logger = logger;
+            _updateValidator = updateValidator;
         }
 
-        public async Task<UserReadDto> UpdateProfileAsync(string email, UserUpdateDto dto)
+        public async Task<UserReadDto> UpdateProfileAsync(string email, UserUpdateDto dto, CancellationToken cancellationToken = default)
         {
-            var user = await _userRepository.GetByEmailAsync(email);
+            await _updateValidator.ValidateAndThrowAsync(dto, cancellationToken);
+
+            var user = await _userRepository.GetByEmailAsync(email, cancellationToken);
             if (user == null)
             {
-                throw new KeyNotFoundException("User not found.");
+                throw new NotFoundException("User not found.");
             }
 
             // 1. Map standard text fields (e.g., DisplayName) to the user entity
@@ -48,7 +53,8 @@ namespace KymWantsAPI.Infrastructure.Services
                     file: dto.ProfileImage,
                     fileName: fileName,
                     folder: "/avatars",
-                    tags: new List<string> { "avatar", user.Id.ToString() }
+                    tags: new List<string> { "avatar", user.Id.ToString() },
+                    cancellationToken: cancellationToken
                 );
 
                 // Assign the returned ImageKit URL to the user profile
@@ -56,7 +62,7 @@ namespace KymWantsAPI.Infrastructure.Services
             }
 
             // 3. Save changes
-            await _userRepository.UpdateAsync(user);
+            await _userRepository.UpdateAsync(user, cancellationToken);
 
             return _mapper.Map<UserReadDto>(user);
         }

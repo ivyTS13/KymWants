@@ -47,8 +47,8 @@ namespace KymWantsAPI.Infrastructure.Services
 
                             for (int i = 0; i < words.Length; i += step)
                             {
-                                var chunkWords = words.Skip(i).Take(chunkSizeWords);
-                                var text = string.Join(" ", chunkWords).Trim();
+                                int count = Math.Min(chunkSizeWords, words.Length - i);
+                                var text = string.Join(" ", new ArraySegment<string>(words, i, count)).Trim();
 
                                 if (!string.IsNullOrWhiteSpace(text))
                                 {

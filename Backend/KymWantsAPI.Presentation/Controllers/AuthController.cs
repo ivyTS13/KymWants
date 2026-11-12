@@ -30,46 +30,25 @@ namespace KymWantsAPI.Presentation.Controllers
         }
 
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] UserCreateDto request)
+        public async Task<IActionResult> Register([FromBody] UserCreateDto request, CancellationToken cancellationToken)
         {
-            try
-            {
-                var result = await _authService.RegisterAsync(request);
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error occurred during user registration.");
-                return BadRequest(new { message = ex.Message });
-            }
+            var result = await _authService.RegisterAsync(request, cancellationToken);
+            return Ok(result);
         }
 
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] UserLoginDto request)
+        public async Task<IActionResult> Login([FromBody] UserLoginDto request, CancellationToken cancellationToken)
         {
-            try
-            {
-                var token = await _authService.LoginAsync(request);
-                SetTokenCookie(token);
-                return Ok(new { message = "Login successful" });
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                _logger.LogWarning("Returning 401 Unauthorized for login request.");
-                return Unauthorized(new { message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unexpected error during login.");
-                return StatusCode(500, "An internal error occurred.");
-            }
+            var token = await _authService.LoginAsync(request, cancellationToken);
+            SetTokenCookie(token);
+            return Ok(new { message = "Login successful" });
         }
 
         [HttpPost("logout")]
         public IActionResult Logout()
         {
             _logger.LogInformation("User initiated logout. Deleting cookie.");
-            Response.Cookies.Delete("access_token");
+            DeleteTokenCookie();
             return Ok(new { message = "Logged out successfully" });
         }
 
@@ -85,7 +64,7 @@ namespace KymWantsAPI.Presentation.Controllers
         }
 
         [HttpGet("google-callback")]
-        public async Task<IActionResult> GoogleCallback([FromQuery] string? error, [FromQuery] string? error_description)
+        public async Task<IActionResult> GoogleCallback([FromQuery] string? error, [FromQuery] string? error_description, CancellationToken cancellationToken)
         {
             var frontendUrl = _configuration["Frontend:RedirectUrl"];
 
@@ -94,11 +73,8 @@ namespace KymWantsAPI.Presentation.Controllers
             {
                 _logger.LogWarning("Google OAuth access was denied or canceled. Error: {Error}, Description: {Description}", error, error_description);
 
-                // Sign out of the temporary external cookie scheme to clear state
                 await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-
-                // Ensure no access token cookie remains
-                Response.Cookies.Delete("access_token");
+                DeleteTokenCookie();
 
                 if (!string.IsNullOrEmpty(frontendUrl))
                 {
@@ -116,7 +92,7 @@ namespace KymWantsAPI.Presentation.Controllers
                 _logger.LogError("Google authentication failed at the provider level.");
 
                 await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-                Response.Cookies.Delete("access_token");
+                DeleteTokenCookie();
 
                 if (!string.IsNullOrEmpty(frontendUrl))
                 {
@@ -145,7 +121,7 @@ namespace KymWantsAPI.Presentation.Controllers
 
             try
             {
-                var token = await _authService.GoogleLoginAsync(email, name ?? "User", googleId, profilePicture);
+                var token = await _authService.GoogleLoginAsync(email, name ?? "User", googleId, profilePicture, cancellationToken);
 
                 // Clear the temporary authentication cookie created during OAuth flow
                 await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
@@ -167,7 +143,7 @@ namespace KymWantsAPI.Presentation.Controllers
                 _logger.LogError(ex, "Error occurred while processing Google login data.");
 
                 await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-                Response.Cookies.Delete("access_token");
+                DeleteTokenCookie();
 
                 if (!string.IsNullOrEmpty(frontendUrl))
                 {
@@ -176,89 +152,70 @@ namespace KymWantsAPI.Presentation.Controllers
                 return StatusCode(500, "An internal error occurred during Google authentication.");
             }
         }
+
         [HttpGet("me")]
         [Authorize]
-        public async Task<IActionResult> GetMe()
+        public async Task<IActionResult> GetMe(CancellationToken cancellationToken)
         {
-            try
-            {
-                var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
-                            ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Email)?.Value;
+            var email = User.FindFirst(ClaimTypes.Email)?.Value
+                        ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Email)?.Value;
 
-                if (string.IsNullOrEmpty(email))
-                {
-                    _logger.LogWarning("Unauthorized 'me' request: Email claim missing from token.");
-                    return Unauthorized(new { message = "Invalid token claims." });
-                }
+            if (string.IsNullOrEmpty(email))
+            {
+                _logger.LogWarning("Unauthorized 'me' request: Email claim missing from token.");
+                return Unauthorized(new { message = "Invalid token claims." });
+            }
 
-                var userDto = await _authService.MeAsync(email);
-                return Ok(userDto);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                _logger.LogWarning(ex, "User profile not found during 'me' request.");
-                return NotFound(new { message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unexpected error occurred while fetching user profile.");
-                return StatusCode(500, "An internal error occurred.");
-            }
+            var userDto = await _authService.MeAsync(email, cancellationToken);
+            return Ok(userDto);
         }
 
         private void SetTokenCookie(string token)
         {
-            var cookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Lax,
-                Expires = DateTime.UtcNow.AddHours(2)
-            };
-            Response.Cookies.Append("access_token", token, cookieOptions);
+            Response.Cookies.Append("access_token", token, BuildTokenCookieOptions(DateTime.UtcNow.AddHours(2)));
         }
+
+        private void DeleteTokenCookie()
+        {
+            Response.Cookies.Delete("access_token", BuildTokenCookieOptions());
+        }
+
+        private static CookieOptions BuildTokenCookieOptions(DateTime? expires = null) => new()
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Lax,
+            Expires = expires
+        };
 
         [Authorize]
         [HttpPost("change-password")]
-        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto, CancellationToken cancellationToken)
         {
-            try
+            var email = User.FindFirst(ClaimTypes.Email)?.Value
+                        ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Email)?.Value;
+            if (string.IsNullOrEmpty(email))
             {
-                var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
-                            ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Email)?.Value;
-                if (string.IsNullOrEmpty(email))
-                {
-                    _logger.LogWarning("Unauthorized 'me' request: Email claim missing from token.");
-                    return Unauthorized(new { message = "Invalid token claims." });
-                }
-                await _authService.ChangePasswordAsync(email, dto);
-                return Ok(new { message = "Password updated successfully." });
+                _logger.LogWarning("Unauthorized 'change-password' request: Email claim missing from token.");
+                return Unauthorized(new { message = "Invalid token claims." });
             }
-            catch (UnauthorizedAccessException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
+
+            await _authService.ChangePasswordAsync(email, dto, cancellationToken);
+            return Ok(new { message = "Password updated successfully." });
         }
 
         [HttpPost("forgot-password")]
-        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto, CancellationToken cancellationToken)
         {
-            await _authService.ForgotPasswordAsync(dto);
+            await _authService.ForgotPasswordAsync(dto, cancellationToken);
             return Ok(new { message = "If the email is registered, a password reset link has been sent." });
         }
 
         [HttpPost("reset-password")]
-        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto, CancellationToken cancellationToken)
         {
-            try
-            {
-                await _authService.ResetPasswordAsync(dto);
-                return Ok(new { message = "Password has been successfully reset." });
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
+            await _authService.ResetPasswordAsync(dto, cancellationToken);
+            return Ok(new { message = "Password has been successfully reset." });
         }
     }
 }

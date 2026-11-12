@@ -1,4 +1,5 @@
-﻿using KymWantsAPI.Application.DTOs;
+﻿using FluentValidation;
+using KymWantsAPI.Application.DTOs;
 using KymWantsAPI.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,36 +12,24 @@ namespace KymWantsAPI.Presentation.Controllers
     public class ChatController : ControllerBase
     {
         private readonly IRagChatService _ragChatService;
+        private readonly IValidator<ChatRequestDto> _validator;
 
-        public ChatController(IRagChatService ragChatService)
+        public ChatController(IRagChatService ragChatService, IValidator<ChatRequestDto> validator)
         {
             _ragChatService = ragChatService;
+            _validator = validator;
         }
 
         [HttpPost("ask")]
-        public async Task<IActionResult> Ask([FromBody] ChatRequestDto request)
+        public async Task<IActionResult> Ask([FromBody] ChatRequestDto request, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(request.Question))
-            {
-                return BadRequest("Question cannot be empty.");
-            }
+            await _validator.ValidateAndThrowAsync(request, cancellationToken);
 
             // Identify client by IP address (fallback to unknown)
             var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown_client";
 
-            try
-            {
-                var response = await _ragChatService.AskAsync(request.Question, clientIp);
-                return Ok(response);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return StatusCode(429, new { message = ex.Message }); // 429 Too Many Requests
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "An error occurred while processing your request.", detail = ex.Message });
-            }
+            var response = await _ragChatService.AskAsync(request.Question, clientIp, cancellationToken);
+            return Ok(response);
         }
     }
 }

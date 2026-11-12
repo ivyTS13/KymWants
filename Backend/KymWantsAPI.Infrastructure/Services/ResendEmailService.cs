@@ -21,7 +21,7 @@ namespace KymWantsAPI.Infrastructure.Services
             _logger = logger;
         }
 
-        public async Task SendPasswordResetEmailAsync(string toEmail, string resetToken)
+        public async Task SendPasswordResetEmailAsync(string toEmail, string resetToken, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -67,7 +67,7 @@ namespace KymWantsAPI.Infrastructure.Services
                     </div>"
                 };
 
-                await _resend.EmailSendAsync(message);
+                await _resend.EmailSendAsync(message, cancellationToken);
                 _logger.LogInformation("Password reset email successfully sent to {Email}", toEmail);
             }
 

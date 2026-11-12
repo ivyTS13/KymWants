@@ -25,9 +25,12 @@ namespace KymWantsAPI.Infrastructure.DependencyInjection
         public static IServiceCollection AddInfrastructureService(this IServiceCollection services, IConfiguration config)
         {
             // 1. DbContext
+            var defaultConnection = config.GetConnectionString("DefaultConnection")
+                ?? throw new InvalidOperationException("Configuration error: 'ConnectionStrings:DefaultConnection' is missing.");
+
             services.AddDbContext<KymWantsDBContext>(options =>
                 options.UseNpgsql(
-                    config.GetConnectionString("DefaultConnection"),
+                    defaultConnection,
                     npgsqlOptions => npgsqlOptions.EnableRetryOnFailure().UseVector()
                 ));
 
@@ -41,22 +44,22 @@ namespace KymWantsAPI.Infrastructure.DependencyInjection
             services.AddScoped<ICollectionRepository, CollectionRepository>();
             services.AddScoped<ICategoryRepository, CategoryRepository>();
             services.AddScoped<IDocumentRepository, DocumentRepository>();
-            // Application Services
-            services.AddScoped<IDishService, DishService>();
-            services.AddScoped<IAuthService, AuthService>();
-            services.AddScoped<ICollectionService, CollectionService>();
-            services.AddScoped<IUserService, UserService>();
+            // Infrastructure Services & Adapters
+            services.AddScoped<IPasswordHasher, Argon2PasswordHasher>();
             services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
             services.AddScoped<IEmailService, ResendEmailService>();
-           services.AddScoped<IPdfChunkingService, PdfChunkingService>();
-           services.AddHttpClient<IEmbeddingService, EmbeddingService>();
-           services.AddSingleton<ITokenBudgetService, TokenBudgetService>();
-           services.AddScoped<IRagChatService, RagChatService>();
-           services.AddScoped<DocumentIngestionService>();
+            services.AddScoped<IPdfChunkingService, PdfChunkingService>();
+            services.AddSingleton<ITokenBudgetService, TokenBudgetService>();
 
             // 2. CORS
-            var allowedOrigins = config.GetSection("Frontend:AllowedOrigins").Get<string[]>()
-                      ?? new[] { "http://localhost:5173" }; // fallback only if missing
+            var configuredOrigins = config.GetSection("Frontend:AllowedOrigins").Get<string[]>();
+            var redirectUrl = config["Frontend:RedirectUrl"];
+
+            var allowedOrigins = (configuredOrigins != null && configuredOrigins.Length > 0)
+                ? configuredOrigins
+                : (!string.IsNullOrWhiteSpace(redirectUrl)
+                    ? new[] { redirectUrl.TrimEnd('/') }
+                    : new[] { "http://localhost:5173" });
 
             services.AddCors(options =>
             {
@@ -84,8 +87,10 @@ namespace KymWantsAPI.Infrastructure.DependencyInjection
             })
             .AddGoogle(options =>
             {
-                options.ClientId = config["Authentication:Google:ClientId"]!;
-                options.ClientSecret = config["Authentication:Google:ClientSecret"]!;
+                options.ClientId = config["Authentication:Google:ClientId"]
+                    ?? throw new InvalidOperationException("Configuration error: 'Authentication:Google:ClientId' is missing.");
+                options.ClientSecret = config["Authentication:Google:ClientSecret"]
+                    ?? throw new InvalidOperationException("Configuration error: 'Authentication:Google:ClientSecret' is missing.");
                 options.CallbackPath = "/api/signin-google";
                 options.Scope.Add("profile");
                 options.Scope.Add("email");
@@ -105,9 +110,13 @@ namespace KymWantsAPI.Infrastructure.DependencyInjection
             })
             .AddJwtBearer(options =>
             {
-                var key = Encoding.UTF8.GetBytes(config["JwtSettings:Secret"]!);
-                string issuer = config["JwtSettings:Issuer"]!;
-                string audience = config["JwtSettings:Audience"]!;
+                var secret = config["JwtSettings:Secret"]
+                    ?? throw new InvalidOperationException("Configuration error: 'JwtSettings:Secret' is missing.");
+                var key = Encoding.UTF8.GetBytes(secret);
+                string issuer = config["JwtSettings:Issuer"]
+                    ?? throw new InvalidOperationException("Configuration error: 'JwtSettings:Issuer' is missing.");
+                string audience = config["JwtSettings:Audience"]
+                    ?? throw new InvalidOperationException("Configuration error: 'JwtSettings:Audience' is missing.");
 
                 options.RequireHttpsMetadata = true;
                 options.SaveToken = true;
@@ -158,14 +167,22 @@ namespace KymWantsAPI.Infrastructure.DependencyInjection
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
                 options.AddPolicy("StandardLimit", httpContext =>
-                    RateLimitPartition.GetFixedWindowLimiter(
-                        partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                {
+                    var clientIp = httpContext.Request.Headers["CF-Connecting-IP"].FirstOrDefault()?.Trim();
+                    if (string.IsNullOrEmpty(clientIp))
+                    {
+                        clientIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                    }
+
+                    return RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: clientIp,
                         factory: _ => new FixedWindowRateLimiterOptions
                         {
                             PermitLimit = 30,
                             Window = TimeSpan.FromMinutes(1),
                             QueueLimit = 0
-                        }));
+                        });
+                });
             });
 
             // 6. Enable Forwarded Headers (CRITICAL FOR CLOUDFLARE WORKER PROXY)
@@ -176,31 +193,47 @@ namespace KymWantsAPI.Infrastructure.DependencyInjection
                     ForwardedHeaders.XForwardedHost |
                     ForwardedHeaders.XForwardedProto;
 
+                // Traffic traverses Cloudflare Worker -> Render Proxy -> Kestrel (2 hops)
+                options.ForwardLimit = 2;
+
                 // Clear known networks/proxies so ASP.NET Core trusts Cloudflare Worker's headers
+                // (protected upstream by X-Origin-Secret middleware)
                 options.KnownNetworks.Clear();
                 options.KnownProxies.Clear();
             });
 
             // 7. Resend Email
-            services.AddResend(options =>
+            var resendApiKey = config["Resend:ApiKey"];
+            if (!string.IsNullOrWhiteSpace(resendApiKey))
             {
-                options.ApiToken = config["Resend:ApiKey"]!;
-            });
+                services.AddResend(options =>
+                {
+                    options.ApiToken = resendApiKey;
+                });
+            }
 
-            //8. HttpClient for OpenRouter
+            // 8. HttpClient for OpenRouter
+            var openRouterKey = config["OpenRouter:ApiKey"];
+            var frontendRedirect = config["Frontend:RedirectUrl"] ?? "https://kymwants.com";
 
-           services.AddHttpClient<IRagChatService, RagChatService>(client =>
+            services.AddHttpClient<IRagChatService, RagChatService>(client =>
             {
-                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {config["OpenRouter:ApiKey"]}");
-                client.DefaultRequestHeaders.Add("HTTP-Referer", config["Frontend:RedirectUrl"]);
+                if (!string.IsNullOrWhiteSpace(openRouterKey))
+                {
+                    client.DefaultRequestHeaders.Add("Authorization", $"Bearer {openRouterKey}");
+                }
+                client.DefaultRequestHeaders.Add("HTTP-Referer", frontendRedirect);
                 client.DefaultRequestHeaders.Add("X-Title", "KymWants User Guide RAG");
             });
 
             services.AddHttpClient<IEmbeddingService, EmbeddingService>(client =>
             {
                 client.BaseAddress = new Uri("https://openrouter.ai/api/v1/");
-                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {config["OpenRouter:ApiKey"]}");
-                client.DefaultRequestHeaders.Add("HTTP-Referer", config["Frontend:RedirectUrl"] ?? "https://kymwants.com");
+                if (!string.IsNullOrWhiteSpace(openRouterKey))
+                {
+                    client.DefaultRequestHeaders.Add("Authorization", $"Bearer {openRouterKey}");
+                }
+                client.DefaultRequestHeaders.Add("HTTP-Referer", frontendRedirect);
                 client.DefaultRequestHeaders.Add("X-Title", "KymWants User Guide RAG");
             });
 

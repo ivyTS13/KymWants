@@ -1,4 +1,5 @@
 ﻿using KymWantsAPI.Application.DTOs;
+using KymWantsAPI.Application.Exceptions;
 using KymWantsAPI.Application.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -33,24 +34,24 @@ namespace KymWantsAPI.Infrastructure.Services
             _logger = logger;
         }
 
-        public async Task<ChatResponseDto> AskAsync(string question, string clientKey)
+        public async Task<ChatResponseDto> AskAsync(string question, string clientKey, CancellationToken cancellationToken = default)
         {
-            // 1. Rate Limit & Token Budget Verification
-            if (_tokenBudgetService.IsRateLimited(clientKey))
+            // 1. Rate Limit & Token Budget Verification (Non-blocking Redis calls)
+            if (await _tokenBudgetService.IsRateLimitedAsync(clientKey, cancellationToken: cancellationToken))
             {
-                throw new InvalidOperationException("Rate limit reached. Please wait a minute before asking another question.");
+                throw new RateLimitExceededException("Rate limit reached. Please wait a minute before asking another question.");
             }
 
-            if (!_tokenBudgetService.HasAvailableTokenBudget(clientKey))
+            if (!await _tokenBudgetService.HasAvailableTokenBudgetAsync(clientKey, cancellationToken: cancellationToken))
             {
-                throw new InvalidOperationException("Daily AI query limit reached for your session.");
+                throw new RateLimitExceededException("Daily AI query limit reached for your session.");
             }
 
             // 2. Query Vectorization
-            var queryVector = await _embeddingService.GetEmbeddingAsync(question);
+            var queryVector = await _embeddingService.GetEmbeddingAsync(question, cancellationToken);
 
             // 3. Similarity Search via pgvector
-            var relevantChunks = await _documentRepository.SearchSimilarChunksAsync(queryVector, topK: 4);
+            var relevantChunks = await _documentRepository.SearchSimilarChunksAsync(queryVector, topK: 4, cancellationToken);
 
             // 4. Construct System Context Prompt
             var contextBuilder = new StringBuilder();
@@ -94,8 +95,8 @@ namespace KymWantsAPI.Infrastructure.Services
             {
                 _logger.LogInformation("Sending chat completion request to OpenRouter model '{Model}' for client '{ClientKey}'", chatModel, clientKey);
 
-                var response = await _httpClient.PostAsJsonAsync("https://openrouter.ai/api/v1/chat/completions", payload);
-                var responseBody = await response.Content.ReadAsStringAsync();
+                var response = await _httpClient.PostAsJsonAsync("https://openrouter.ai/api/v1/chat/completions", payload, cancellationToken);
+                var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
 
                 // 5a. Inspect HTTP Status Code before throwing
                 if (!response.IsSuccessStatusCode)
@@ -139,7 +140,7 @@ namespace KymWantsAPI.Infrastructure.Services
                 // 6. Record Token Consumption
                 if (totalTokens > 0)
                 {
-                    _tokenBudgetService.RecordTokenUsage(clientKey, totalTokens);
+                    await _tokenBudgetService.RecordTokenUsageAsync(clientKey, totalTokens, cancellationToken);
                 }
 
                 return new ChatResponseDto

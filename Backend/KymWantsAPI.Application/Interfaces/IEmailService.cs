@@ -1,9 +1,7 @@
-﻿
-
-namespace KymWantsAPI.Application.Interfaces
+﻿namespace KymWantsAPI.Application.Interfaces
 {
     public interface IEmailService
     {
-        Task SendPasswordResetEmailAsync(string toEmail, string resetToken);
+        Task SendPasswordResetEmailAsync(string toEmail, string resetToken, CancellationToken cancellationToken = default);
     }
 }

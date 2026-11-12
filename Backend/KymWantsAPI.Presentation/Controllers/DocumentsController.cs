@@ -1,8 +1,8 @@
 ﻿using KymWantsAPI.Application.Interfaces;
-using KymWantsAPI.Infrastructure.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
+using Microsoft.Extensions.Logging;
 
 namespace KymWantsAPI.Presentation.Controllers
 {
@@ -11,12 +11,12 @@ namespace KymWantsAPI.Presentation.Controllers
     [Route("api/[controller]")]
     public class DocumentsController : ControllerBase
     {
-        private readonly DocumentIngestionService _ingestionService;
+        private readonly IDocumentIngestionService _ingestionService;
         private readonly IDocumentRepository _documentRepository;
         private readonly ILogger<DocumentsController> _logger;
 
         public DocumentsController(
-            DocumentIngestionService ingestionService,
+            IDocumentIngestionService ingestionService,
             IDocumentRepository documentRepository,
             ILogger<DocumentsController> logger)
         {
@@ -30,7 +30,7 @@ namespace KymWantsAPI.Presentation.Controllers
         /// </summary>
         [HttpPost("upload")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UploadDocument(IFormFile file)
+        public async Task<IActionResult> UploadDocument(IFormFile file, CancellationToken cancellationToken)
         {
             if (file == null || file.Length == 0)
             {
@@ -42,23 +42,15 @@ namespace KymWantsAPI.Presentation.Controllers
                 return BadRequest("Only PDF files are supported.");
             }
 
-            try
-            {
-                using var stream = file.OpenReadStream();
-                int totalChunks = await _ingestionService.IngestOrUpdatePdfAsync(stream, file.FileName);
+            using var stream = file.OpenReadStream();
+            int totalChunks = await _ingestionService.IngestOrUpdatePdfAsync(stream, file.FileName, cancellationToken);
 
-                return Ok(new
-                {
-                    message = $"Successfully processed '{file.FileName}'.",
-                    fileName = file.FileName,
-                    chunksCreated = totalChunks
-                });
-            }
-            catch (Exception ex)
+            return Ok(new
             {
-                _logger.LogError(ex, "Failed to upload document '{FileName}'", file.FileName);
-                return StatusCode(500, new { message = "An error occurred while processing the document.", detail = ex.Message });
-            }
+                message = $"Successfully processed '{file.FileName}'.",
+                fileName = file.FileName,
+                chunksCreated = totalChunks
+            });
         }
 
         /// <summary>
@@ -66,18 +58,10 @@ namespace KymWantsAPI.Presentation.Controllers
         /// </summary>
         [HttpDelete("{documentName}")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> DeleteDocument(string documentName)
+        public async Task<IActionResult> DeleteDocument(string documentName, CancellationToken cancellationToken)
         {
-            try
-            {
-                await _documentRepository.DeleteChunksByDocumentNameAsync(documentName);
-                return Ok(new { message = $"All vector chunks for document '{documentName}' have been deleted." });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to delete document '{DocumentName}'", documentName);
-                return StatusCode(500, new { message = "An error occurred while deleting the document." });
-            }
+            await _documentRepository.DeleteChunksByDocumentNameAsync(documentName, cancellationToken);
+            return Ok(new { message = $"All vector chunks for document '{documentName}' have been deleted." });
         }
 
         /// <summary>
@@ -85,30 +69,10 @@ namespace KymWantsAPI.Presentation.Controllers
         /// </summary>
         [HttpGet]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetAllDocuments()
+        public async Task<IActionResult> GetAllDocuments(CancellationToken cancellationToken)
         {
-            try
-            {
-                var documents = await _documentRepository.GetAllDocumentsAsync();
-                return Ok(documents);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to fetch document list.");
-                return StatusCode(500, new { message = "An error occurred while fetching documents." });
-            }
-        }
-        [HttpGet("debug")]
-        [Authorize]
-        public IActionResult Debug()
-        {
-            return Ok(new
-            {
-                IsAuthenticated = User.Identity?.IsAuthenticated,
-                IsAdmin = User.IsInRole("Admin"),
-                RoleClaims = User.FindAll(ClaimTypes.Role).Select(c => c.Value),
-                Claims = User.Claims.Select(c => new { c.Type, c.Value })
-            });
+            var documents = await _documentRepository.GetAllDocumentsAsync(cancellationToken);
+            return Ok(documents);
         }
     }
 }

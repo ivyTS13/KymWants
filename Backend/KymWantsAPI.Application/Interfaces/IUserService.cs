@@ -1,11 +1,9 @@
-﻿
-
-using KymWantsAPI.Application.DTOs;
+﻿using KymWantsAPI.Application.DTOs;
 
 namespace KymWantsAPI.Application.Interfaces
 {
     public interface IUserService
     {
-        Task<UserReadDto> UpdateProfileAsync(string email, UserUpdateDto dto);
+        Task<UserReadDto> UpdateProfileAsync(string email, UserUpdateDto dto, CancellationToken cancellationToken = default);
     }
 }
