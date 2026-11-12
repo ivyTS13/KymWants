@@ -50,13 +50,32 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
 
-    // 2. Enable withCredentials in Swagger UI so cookies are sent with requests
+    // 1. Enable withCredentials in Swagger UI so cookies are sent with requests
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/swagger/v1/swagger.json", "KymWantsAPI v1");
         options.ConfigObject.AdditionalItems["withCredentials"] = true;
     });
 }
+// 2. REJECT direct access to Render backend if secret header is missing or invalid
+app.Use(async (context, next) =>
+{
+    // Skip verification during local development (Optional)
+    if (!app.Environment.IsDevelopment())
+    {
+        var expectedSecret = app.Configuration["OriginSecret"];
+
+        if (!context.Request.Headers.TryGetValue("X-Origin-Secret", out var providedSecret) ||
+            providedSecret != expectedSecret)
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsync("403 Forbidden: Direct access to backend origin is not allowed.");
+            return;
+        }
+    }
+
+    await next();
+});
 
 app.UseForwardedHeaders();
 app.UseHttpsRedirection();

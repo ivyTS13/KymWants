@@ -1,4 +1,14 @@
 import axios from 'axios';
+import { PATHS } from '../router/paths';
+
+let onUnauthorizedCallback = null;
+
+/**
+ * Register a listener to clear auth state when a 401 response is received.
+ */
+export const registerUnauthorizedHandler = (callback) => {
+  onUnauthorizedCallback = callback;
+};
 
 // 1. Create a configured Axios instance
 const baseURL = import.meta.env.VITE_API_URL
@@ -16,15 +26,23 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
-    const requestUrl = error.config?.url; // <--- Safely extract the request URL
+    const requestUrl = error.config?.url;
 
     if (status === 401) {
       if (requestUrl && !requestUrl.includes('/Auth/me')) {
-        const publicPaths = ['/login', '/register', '/forgot', '/reset-password'];
+        // Trigger registered in-memory state reset
+        onUnauthorizedCallback?.();
+
+        const publicPaths = [
+          PATHS.LOGIN,
+          PATHS.REGISTER,
+          PATHS.FORGOTPASS,
+          PATHS.RESETPASSWORD,
+        ];
         const currentPath = window.location.pathname;
 
         if (!publicPaths.some((path) => currentPath.startsWith(path))) {
-          window.location.href = '/login';
+          window.location.href = PATHS.LOGIN;
         }
       }
     }

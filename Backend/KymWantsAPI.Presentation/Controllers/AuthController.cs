@@ -212,7 +212,7 @@ namespace KymWantsAPI.Presentation.Controllers
             {
                 HttpOnly = true,
                 Secure = true,
-                SameSite = SameSiteMode.None,
+                SameSite = SameSiteMode.Lax,
                 Expires = DateTime.UtcNow.AddHours(2)
             };
             Response.Cookies.Append("access_token", token, cookieOptions);
