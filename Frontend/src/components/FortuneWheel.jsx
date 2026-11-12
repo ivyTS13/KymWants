@@ -14,7 +14,7 @@ const AESTHETIC_PALETTE = [
 ];
 
 function getContrastColor(hexColor) {
-  const hex = hexColor.replace('#', '');
+  const hex = hexColor.replace("#", "");
   const r = parseInt(hex.substring(0, 2), 16) / 255;
   const g = parseInt(hex.substring(2, 4), 16) / 255;
   const b = parseInt(hex.substring(4, 6), 16) / 255;
@@ -28,6 +28,11 @@ export default function FortuneWheel({ dishes, onWinnerSelected }) {
 
   const numSlices = dishes?.length || 0;
   const sliceAngle = numSlices ? 360 / numSlices : 0;
+  const isAdaptiveMode = numSlices > 10;
+
+  const prefersReducedMotion =
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
   const conicGradient = dishes
     ?.map((_, i) => {
@@ -40,6 +45,26 @@ export default function FortuneWheel({ dishes, onWinnerSelected }) {
 
   const handleSpin = () => {
     if (isSpinning || numSlices === 0) return;
+
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+    if (prefersReduced) {
+      setIsSpinning(true);
+      const randomIndex = Math.floor(Math.random() * numSlices);
+      const targetRotation =
+        (360 - (randomIndex * sliceAngle + sliceAngle / 2)) % 360;
+      setRotation(targetRotation);
+
+      setTimeout(() => {
+        setIsSpinning(false);
+        if (onWinnerSelected && dishes[randomIndex]) {
+          onWinnerSelected(dishes[randomIndex]);
+        }
+      }, 150);
+      return;
+    }
 
     setIsSpinning(true);
 
@@ -69,16 +94,17 @@ export default function FortuneWheel({ dishes, onWinnerSelected }) {
           The wheel is currently empty
         </h4>
         <p className="text-xs text-earth-maroon/70 leading-relaxed">
-          Tap items from your collection or generate a custom menu to queue them for a spin!
+          Tap items from your collection or generate a custom menu to queue
+          them for a spin!
         </p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center gap-7 w-full">
+    <div className="flex flex-col items-center gap-6 w-full">
       <div className="relative w-64 h-64 sm:w-72 sm:h-72 md:w-80 md:h-80 drop-shadow-md">
-        {/* Sleek needle pointer */}
+        {/* Needle pointer */}
         <div
           aria-hidden="true"
           className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center filter drop-shadow-sm"
@@ -87,7 +113,7 @@ export default function FortuneWheel({ dishes, onWinnerSelected }) {
           <div className="w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[18px] border-t-earth-maroon -mt-1" />
         </div>
 
-        {/* Wheel container with refined frame */}
+        {/* Wheel container */}
         <div
           role="region"
           aria-live="polite"
@@ -100,22 +126,28 @@ export default function FortuneWheel({ dishes, onWinnerSelected }) {
                 ? AESTHETIC_PALETTE[0]
                 : `conic-gradient(${conicGradient})`,
             transform: `rotate(${rotation}deg)`,
-            transition: `transform ${SPIN_DURATION_MS / 1000}s cubic-bezier(0.17, 0.67, 0.12, 0.99)`,
+            transition:
+              isSpinning && prefersReducedMotion
+                ? "transform 0.15s ease-out"
+                : `transform ${SPIN_DURATION_MS / 1000}s cubic-bezier(0.17, 0.67, 0.12, 0.99)`,
           }}
         >
-          {/* Chic inner hub badge */}
+          {/* Inner hub badge */}
           <div
             aria-hidden="true"
             className="absolute inset-0 m-auto w-12 h-12 bg-white/95 rounded-full z-10 shadow-md border-2 border-earth-rust/30 flex items-center justify-center text-earth-rust"
           >
-            <SparklesIcon className="w-4 h-4 text-earth-rust animate-pulse" />
+            <SparklesIcon className="w-4 h-4 text-earth-rust motion-safe:animate-pulse" />
           </div>
 
           {dishes.map((dish, i) => {
             const textRotation = i * sliceAngle + sliceAngle / 2;
             const sliceColor = AESTHETIC_PALETTE[i % AESTHETIC_PALETTE.length];
             const textColor = getContrastColor(sliceColor);
-            const badgeBg = textColor === "#FFFFFF" ? "rgba(0, 0, 0, 0.28)" : "rgba(255, 255, 255, 0.85)";
+            const badgeBg =
+              textColor === "#FFFFFF"
+                ? "rgba(0, 0, 0, 0.28)"
+                : "rgba(255, 255, 255, 0.85)";
 
             return (
               <div
@@ -125,29 +157,92 @@ export default function FortuneWheel({ dishes, onWinnerSelected }) {
                   transform: `rotate(${textRotation}deg)`,
                 }}
               >
-                <span
-                  className="transform -rotate-90 origin-center block truncate w-20 md:w-24 text-[11px] font-bold tracking-tight drop-shadow-xs px-2 py-0.5 rounded-full"
-                  style={{
-                    color: textColor,
-                    backgroundColor: badgeBg,
-                  }}
-                >
-                  {dish.name}
-                </span>
+                {isAdaptiveMode ? (
+                  /* Numbered slice marker when dish count > 10 prevents overcrowding */
+                  <span
+                    className="transform -rotate-90 origin-center block text-xs font-black tracking-tight drop-shadow-xs px-2 py-0.5 rounded-full"
+                    style={{
+                      color: textColor,
+                      backgroundColor: badgeBg,
+                    }}
+                  >
+                    {i + 1}
+                  </span>
+                ) : (
+                  /* Standard radial label for <= 10 dishes */
+                  <span
+                    className="transform -rotate-90 origin-center block truncate w-20 md:w-24 text-[11px] font-bold tracking-tight drop-shadow-xs px-2 py-0.5 rounded-full"
+                    style={{
+                      color: textColor,
+                      backgroundColor: badgeBg,
+                    }}
+                  >
+                    {dish.name}
+                  </span>
+                )}
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* Aesthetic Spin Pill Button */}
+      {/* Adaptive Dish Guide when wheel has > 10 dishes */}
+      {isAdaptiveMode && (
+        <div className="w-full max-w-sm bg-white/70 backdrop-blur-xs rounded-2xl border border-earth-rust/15 p-3.5 shadow-xs">
+          <div className="flex items-center justify-between mb-2 pb-1 border-b border-earth-rust/10">
+            <h4 className="text-xs font-bold text-earth-maroon font-display">
+              Dish Guide
+            </h4>
+            <span className="text-[10px] text-earth-maroon/60">
+              {numSlices} dishes on wheel
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto pr-1">
+            {dishes.map((dish, i) => {
+              const sliceColor =
+                AESTHETIC_PALETTE[i % AESTHETIC_PALETTE.length];
+              const badgeText = getContrastColor(sliceColor);
+              return (
+                <div
+                  key={dish.id}
+                  className="flex items-center gap-1.5 text-xs text-earth-maroon bg-white/80 rounded-xl px-2 py-1 border border-earth-rust/10 min-w-0"
+                >
+                  <span
+                    className="w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 shadow-xs"
+                    style={{
+                      backgroundColor: sliceColor,
+                      color: badgeText,
+                    }}
+                  >
+                    {i + 1}
+                  </span>
+                  <span
+                    className="truncate text-[11px] font-medium"
+                    title={dish.name}
+                  >
+                    {dish.name}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Aesthetic Spin Button */}
       <button
         onClick={handleSpin}
         disabled={isSpinning || numSlices === 0}
         aria-label={isSpinning ? "Wheel is spinning" : "Spin the wheel"}
         className="group relative inline-flex items-center justify-center gap-2.5 px-8 py-3.5 bg-earth-rust hover:bg-earth-maroon text-white font-bold rounded-full shadow-md hover:shadow-lg transition-all duration-200 transform active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-3 focus:ring-earth-rust/30 text-sm tracking-wide"
       >
-        <SparklesIcon className={`w-4 h-4 ${isSpinning ? "animate-spin" : "group-hover:rotate-12 transition-transform"}`} />
+        <SparklesIcon
+          className={`w-4 h-4 ${
+            isSpinning
+              ? "motion-safe:animate-spin"
+              : "group-hover:rotate-12 transition-transform"
+          }`}
+        />
         <span>{isSpinning ? "Spinning..." : "Spin the Wheel"}</span>
       </button>
     </div>

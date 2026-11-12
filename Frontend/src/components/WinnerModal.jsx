@@ -51,7 +51,7 @@ export default function WinnerModal({ dish, onClose }) {
           aria-hidden="true"
           className="w-14 h-14 rounded-2xl bg-earth-rust/10 text-earth-rust mx-auto flex items-center justify-center mb-3 shadow-xs border border-earth-rust/20"
         >
-          <SparklesIcon className="w-7 h-7 animate-bounce" />
+          <SparklesIcon className="w-7 h-7 motion-safe:animate-bounce" />
         </div>
 
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-earth-rust bg-earth-rust/10 px-3 py-1 rounded-full border border-earth-rust/20 mb-2">

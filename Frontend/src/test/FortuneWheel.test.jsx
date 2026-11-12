@@ -1,4 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import FortuneWheel from '../components/FortuneWheel';
 import { calculateWinnerIndex, SPIN_DURATION_MS } from '../utils/wheelMath';
 
 describe('FortuneWheel logic', () => {
@@ -34,5 +36,41 @@ describe('FortuneWheel logic', () => {
 
   it('handles 0 slices safely', () => {
     expect(calculateWinnerIndex(100, 0)).toBe(0);
+  });
+});
+
+describe('FortuneWheel component & adaptive display', () => {
+  it('renders empty wheel view when no dishes are provided', () => {
+    render(<FortuneWheel dishes={[]} onWinnerSelected={vi.fn()} />);
+    expect(screen.getByText(/The wheel is currently empty/i)).toBeInTheDocument();
+  });
+
+  it('renders dish names directly when dishes <= 10 without Dish Guide', () => {
+    const dishes = [
+      { id: '1', name: 'Matcha Latte' },
+      { id: '2', name: 'Tonkatsu Ramen' },
+      { id: '3', name: 'Boba Tea' },
+    ];
+
+    render(<FortuneWheel dishes={dishes} onWinnerSelected={vi.fn()} />);
+
+    expect(screen.getByText('Matcha Latte')).toBeInTheDocument();
+    expect(screen.getByText('Tonkatsu Ramen')).toBeInTheDocument();
+    expect(screen.getByText('Boba Tea')).toBeInTheDocument();
+    expect(screen.queryByText(/Dish Guide/i)).not.toBeInTheDocument();
+  });
+
+  it('renders numbered slices and Dish Guide legend when dishes > 10', () => {
+    const dishes = Array.from({ length: 12 }, (_, i) => ({
+      id: `dish-${i + 1}`,
+      name: `Dish Item ${i + 1}`,
+    }));
+
+    render(<FortuneWheel dishes={dishes} onWinnerSelected={vi.fn()} />);
+
+    expect(screen.getByText('Dish Guide')).toBeInTheDocument();
+    expect(screen.getByText(/12 dishes on wheel/i)).toBeInTheDocument();
+    expect(screen.getByText('Dish Item 1')).toBeInTheDocument();
+    expect(screen.getByText('Dish Item 12')).toBeInTheDocument();
   });
 });
