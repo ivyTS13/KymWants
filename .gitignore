@@ -59,3 +59,4 @@ appsettings.*.Local.json
 
 # agents
 Frontend/.agents/skills/
+Frontend/.claude/skills/

@@ -1,10 +1,21 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { act } from 'react';
 
+const { getCapturedCallback, registerUnauthorizedMock } = vi.hoisted(() => {
+  let cb = null;
+  return {
+    getCapturedCallback: () => cb,
+    registerUnauthorizedMock: vi.fn((handler) => {
+      cb = handler;
+    }),
+  };
+});
+
 vi.mock('../api/axios', () => ({
   default: {
     get: vi.fn(),
   },
+  registerUnauthorizedHandler: registerUnauthorizedMock,
 }));
 
 import apiClient from '../api/axios';
@@ -47,6 +58,22 @@ describe('useUserStore', () => {
     await act(async () => {
       await useUserStore.getState().checkAuth();
     });
+    expect(useUserStore.getState().isAuthenticated).toBe(false);
+    expect(useUserStore.getState().isCheckingAuth).toBe(false);
+  });
+
+  it('resets user state when unauthorized callback is invoked', () => {
+    act(() => {
+      useUserStore.getState().setUser({ id: 99, displayName: 'Alice' });
+    });
+    expect(useUserStore.getState().isAuthenticated).toBe(true);
+
+    act(() => {
+      const cb = getCapturedCallback();
+      cb();
+    });
+
+    expect(useUserStore.getState().user).toBe(null);
     expect(useUserStore.getState().isAuthenticated).toBe(false);
     expect(useUserStore.getState().isCheckingAuth).toBe(false);
   });

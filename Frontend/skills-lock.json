@@ -18,6 +18,12 @@
       "sourceType": "github",
       "skillPath": "SKILL.md",
       "computedHash": "fdb0fb07a50dea58edc7c6574352e810f7da29250a056e2c95cf86389cce0476"
+    },
+    "tdd": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/tdd/SKILL.md",
+      "computedHash": "e3e0f78ff1c2d52ffefa0378baa1e80e129d359288cf9a56f4e59afcd2aac86c"
     }
   }
 }

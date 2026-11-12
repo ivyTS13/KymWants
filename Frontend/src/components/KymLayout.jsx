@@ -1,10 +1,11 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, lazy, Suspense } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import apiClient from "../api/axios";
 import useUserStore from "../store/useUserStore";
 import { PATHS } from "../router/paths";
 import BobaLogo from "./BobaLogo";
-import FloatingChat from "./FloatingChat";
+
+const FloatingChat = lazy(() => import("./FloatingChat"));
 
 export default function Layout({ children }) {
   const user = useUserStore((state) => state.user);
@@ -191,7 +192,11 @@ export default function Layout({ children }) {
         </div>
       </footer>
 
-      {isAuthenticated && <FloatingChat />}
+      {isAuthenticated && (
+        <Suspense fallback={null}>
+          <FloatingChat />
+        </Suspense>
+      )}
     </div>
   );
 }

@@ -1,19 +1,37 @@
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate, Link } from "react-router-dom";
 import useUserStore from "../store/useUserStore";
 import ProtectedRoute from "./ProtectedRoute";
 import { PATHS } from "./paths";
 import AuthLayout from "../components/layout/AuthLayout";
 
-import AuthPage from "../pages/AuthPage";
-import NotFoundPage from "../pages/NotFoundPage";
-import KymDashboard from "../pages/KymDashBoard";
-import ForgotPasswordPage from "../pages/ForgotPassPage";
-import ResetPasswordPage from "../pages/ResetPasswordPage";
-import ProfilePage from "../pages/ProfilePage";
-import AdminPdfManager from "../pages/AdminPdfManager";
+// Lazy-loaded route views for code splitting
+const AuthPage = lazy(() => import("../pages/AuthPage"));
+const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
+const KymDashboard = lazy(() => import("../pages/KymDashBoard"));
+const ForgotPasswordPage = lazy(() => import("../pages/ForgotPassPage"));
+const ResetPasswordPage = lazy(() => import("../pages/ResetPasswordPage"));
+const ProfilePage = lazy(() => import("../pages/ProfilePage"));
+const AdminPdfManager = lazy(() => import("../pages/AdminPdfManager"));
 
 export { PATHS };
+
+function PageFallback() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-earth-beige via-[#F8F2EB] to-[#F1E5D8] text-earth-maroon p-6 font-sans"
+    >
+      <div className="w-12 h-12 rounded-2xl bg-earth-rust/10 border border-earth-rust/20 flex items-center justify-center shadow-xs mb-3">
+        <span className="w-5 h-5 rounded-full border-2 border-earth-rust/30 border-t-earth-rust animate-spin" />
+      </div>
+      <span className="text-xs font-bold text-earth-maroon/70 tracking-wide">
+        Loading...
+      </span>
+    </div>
+  );
+}
 
 function UnauthorizedPage() {
   const icon = (
@@ -75,42 +93,44 @@ export default function AppRoutes() {
           </p>
         </div>
       ) : (
-        <Routes>
-          {/* Redirect root to dashboard if logged in, otherwise login */}
-          <Route
-            path="/"
-            element={
-              <Navigate
-                to={isAuthenticated ? PATHS.DASHBOARD : PATHS.LOGIN}
-                replace
-              />
-            }
-          />
+        <Suspense fallback={<PageFallback />}>
+          <Routes>
+            {/* Redirect root to dashboard if logged in, otherwise login */}
+            <Route
+              path="/"
+              element={
+                <Navigate
+                  to={isAuthenticated ? PATHS.DASHBOARD : PATHS.LOGIN}
+                  replace
+                />
+              }
+            />
 
-          {/* Public Routes */}
-          <Route path={PATHS.LOGIN} element={<AuthPage initialMode="login" />} />
-          <Route
-            path={PATHS.REGISTER}
-            element={<AuthPage initialMode="register" />}
-          />
-          <Route path={PATHS.FORGOTPASS} element={<ForgotPasswordPage />} />
-          <Route path={PATHS.RESETPASSWORD} element={<ResetPasswordPage />} />
-          <Route path={PATHS.UNAUTHORIZED} element={<UnauthorizedPage />} />
+            {/* Public Routes */}
+            <Route path={PATHS.LOGIN} element={<AuthPage initialMode="login" />} />
+            <Route
+              path={PATHS.REGISTER}
+              element={<AuthPage initialMode="register" />}
+            />
+            <Route path={PATHS.FORGOTPASS} element={<ForgotPasswordPage />} />
+            <Route path={PATHS.RESETPASSWORD} element={<ResetPasswordPage />} />
+            <Route path={PATHS.UNAUTHORIZED} element={<UnauthorizedPage />} />
 
-          {/* Standard Protected Routes (Accessible to ALL logged-in users) */}
-          <Route element={<ProtectedRoute />}>
-            <Route path={PATHS.DASHBOARD} element={<KymDashboard />} />
-            <Route path={PATHS.PROFILEPAGE} element={<ProfilePage />} />
-          </Route>
+            {/* Standard Protected Routes (Accessible to ALL logged-in users) */}
+            <Route element={<ProtectedRoute />}>
+              <Route path={PATHS.DASHBOARD} element={<KymDashboard />} />
+              <Route path={PATHS.PROFILEPAGE} element={<ProfilePage />} />
+            </Route>
 
-          {/* Admin-Only Protected Routes (Requires user.isSuperUser === true) */}
-          <Route element={<ProtectedRoute requireAdmin={true} />}>
-            <Route path={PATHS.DOCUMENTS} element={<AdminPdfManager />} />
-          </Route>
+            {/* Admin-Only Protected Routes (Requires user.isSuperUser === true) */}
+            <Route element={<ProtectedRoute requireAdmin={true} />}>
+              <Route path={PATHS.DOCUMENTS} element={<AdminPdfManager />} />
+            </Route>
 
-          {/* 404 Catch-All */}
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
+            {/* 404 Catch-All */}
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </Suspense>
       )}
     </BrowserRouter>
   );

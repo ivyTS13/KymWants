@@ -43,6 +43,10 @@ export default function AuthPage({ initialMode = "login" }) {
           password: formData.password,
           displayName: formData.displayName,
         });
+        await apiClient.post("/Auth/login", {
+          email: formData.email,
+          password: formData.password,
+        });
       }
 
       await checkAuth();
