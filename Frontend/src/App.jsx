@@ -1,7 +1,6 @@
-import React, { useEffect } from "react";
+import React from "react";
 import AppRoutes from "./router/AppRoutes";
 import ServerWakeBanner from "./components/ui/ServerWakeBanner";
-import { wakeServerDirect } from "./utils/serverWake";
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -43,10 +42,6 @@ class ErrorBoundary extends React.Component {
 }
 
 export default function App() {
-  useEffect(() => {
-    void wakeServerDirect();
-  }, []);
-
   return (
     <ErrorBoundary>
       <AppRoutes />
