@@ -1,11 +1,10 @@
 import axios from 'axios';
 import { PATHS } from '../router/paths';
 import useServerWakeStore from '../store/useServerWakeStore';
-import { wakeServerDirect } from '../utils/serverWake';
 
 const SLOW_REQUEST_THRESHOLD_MS = 3000;
-const MAX_COLD_START_RETRIES = 9;
-const COLD_START_RETRY_DELAY_MS = 6500;
+const MAX_COLD_START_RETRIES = 3;
+const COLD_START_RETRY_DELAY_MS = 4000;
 const IDEMPOTENT_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 let onUnauthorizedCallback = null;
@@ -138,7 +137,7 @@ apiClient.interceptors.response.use(
       // Keep the wake banner visible across fast-failing (<3s) retry cycles.
       claimWakeSlot(config);
 
-      await Promise.all([wakeServerDirect(), sleep(getRetryDelayMs(error))]);
+      await sleep(getRetryDelayMs(error));
       return apiClient(config);
     }
 

@@ -166,23 +166,35 @@ namespace KymWantsAPI.Infrastructure.DependencyInjection
             {
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-                options.AddPolicy("StandardLimit", httpContext =>
+                options.OnRejected = (context, _) =>
                 {
-                    var clientIp = httpContext.Request.Headers["CF-Connecting-IP"].FirstOrDefault()?.Trim();
-                    if (string.IsNullOrEmpty(clientIp))
-                    {
-                        clientIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-                    }
+                    var retryAfterSeconds = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter)
+                        ? Math.Max(1, (int)Math.Ceiling(retryAfter.TotalSeconds))
+                        : 10;
 
-                    return RateLimitPartition.GetFixedWindowLimiter(
-                        partitionKey: clientIp,
+                    context.HttpContext.Response.Headers.RetryAfter = retryAfterSeconds.ToString();
+                    return ValueTask.CompletedTask;
+                };
+
+                options.AddPolicy("StandardLimit", httpContext =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: $"std:{ResolveRateLimitPartitionKey(httpContext)}",
                         factory: _ => new FixedWindowRateLimiterOptions
                         {
-                            PermitLimit = 30,
+                            PermitLimit = 120,
                             Window = TimeSpan.FromMinutes(1),
                             QueueLimit = 0
-                        });
-                });
+                        }));
+
+                options.AddPolicy("AuthStrictLimit", httpContext =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: $"auth:{ResolveRateLimitPartitionKey(httpContext, preferUser: false)}",
+                        factory: _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 20,
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueLimit = 0
+                        }));
             });
 
             // 6. Enable Forwarded Headers (CRITICAL FOR CLOUDFLARE WORKER PROXY)
@@ -238,6 +250,34 @@ namespace KymWantsAPI.Infrastructure.DependencyInjection
             });
 
             return services;
+        }
+
+        private static string ResolveRateLimitPartitionKey(HttpContext httpContext, bool preferUser = true)
+        {
+            if (preferUser && httpContext.User.Identity?.IsAuthenticated == true)
+            {
+                var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? httpContext.User.FindFirst(ClaimTypes.Email)?.Value
+                    ?? httpContext.User.FindFirst("sub")?.Value
+                    ?? httpContext.User.FindFirst("email")?.Value;
+
+                if (!string.IsNullOrWhiteSpace(userId))
+                {
+                    return $"user:{userId}";
+                }
+            }
+
+            var clientIp = httpContext.Request.Headers["X-Client-IP"].FirstOrDefault()?.Trim();
+            if (string.IsNullOrEmpty(clientIp))
+            {
+                clientIp = httpContext.Request.Headers["CF-Connecting-IP"].FirstOrDefault()?.Trim();
+            }
+            if (string.IsNullOrEmpty(clientIp))
+            {
+                clientIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            }
+
+            return $"ip:{clientIp}";
         }
     }
 }

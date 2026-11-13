@@ -114,7 +114,11 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
 
-app.MapGet("/healthz", () => Results.Ok(new { status = "healthy" })).ExcludeFromDescription();
+app.MapGet("/healthz", (HttpContext context) =>
+{
+    context.Response.Headers["Cross-Origin-Resource-Policy"] = "cross-origin";
+    return Results.Ok(new { status = "healthy" });
+}).ExcludeFromDescription();
 app.MapControllers();
 app.Run();
 

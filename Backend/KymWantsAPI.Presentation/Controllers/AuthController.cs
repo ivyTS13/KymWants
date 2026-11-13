@@ -29,6 +29,7 @@ namespace KymWantsAPI.Presentation.Controllers
             _configuration = configuration;
         }
 
+        [EnableRateLimiting("AuthStrictLimit")]
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] UserCreateDto request, CancellationToken cancellationToken)
         {
@@ -36,6 +37,7 @@ namespace KymWantsAPI.Presentation.Controllers
             return Ok(result);
         }
 
+        [EnableRateLimiting("AuthStrictLimit")]
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] UserLoginDto request, CancellationToken cancellationToken)
         {
@@ -204,6 +206,7 @@ namespace KymWantsAPI.Presentation.Controllers
             return Ok(new { message = "Password updated successfully." });
         }
 
+        [EnableRateLimiting("AuthStrictLimit")]
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto, CancellationToken cancellationToken)
         {
@@ -211,6 +214,7 @@ namespace KymWantsAPI.Presentation.Controllers
             return Ok(new { message = "If the email is registered, a password reset link has been sent." });
         }
 
+        [EnableRateLimiting("AuthStrictLimit")]
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto, CancellationToken cancellationToken)
         {

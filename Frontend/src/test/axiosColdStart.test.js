@@ -2,7 +2,6 @@ import { AxiosError } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import apiClient from '../api/axios';
 import useServerWakeStore from '../store/useServerWakeStore';
-import { wakeServerDirect } from '../utils/serverWake';
 
 const makeAxiosResponse = (config, status, data = {}, headers = {}) => ({
   data,
@@ -23,24 +22,18 @@ const makeAxiosError = (config, status, headers = {}, data = null) => {
   );
 };
 
-describe('Cold-start Axios interceptor & wakeServerDirect', () => {
+describe('Cold-start & rate-limit Axios interceptor', () => {
   let originalAdapter;
-  let fetchMock;
 
   beforeEach(() => {
     vi.useFakeTimers();
     originalAdapter = apiClient.defaults.adapter;
     useServerWakeStore.getState().resetSlowRequests();
-    fetchMock = vi.fn().mockResolvedValue({ ok: true });
-    vi.stubGlobal('fetch', fetchMock);
-    vi.stubEnv('VITE_BACKEND_DIRECT_URL', 'https://backend.onrender.com/');
   });
 
   afterEach(() => {
     apiClient.defaults.adapter = originalAdapter;
     useServerWakeStore.getState().resetSlowRequests();
-    vi.unstubAllEnvs();
-    vi.unstubAllGlobals();
     vi.useRealTimers();
   });
 
@@ -113,11 +106,10 @@ describe('Cold-start Axios interceptor & wakeServerDirect', () => {
     await expect(apiClient.post('/dishes', { name: 'Pho' })).rejects.toThrow();
 
     expect(adapter).toHaveBeenCalledTimes(1);
-    expect(fetchMock).not.toHaveBeenCalled();
     expect(useServerWakeStore.getState().isServerWaking).toBe(false);
   });
 
-  it('retries 403 text/html (Cloudflare challenge) with direct /healthz wake-up', async () => {
+  it('retries 403 text/html (Cloudflare challenge) and keeps banner active while waiting', async () => {
     let attempts = 0;
     const adapter = vi.fn(async (config) => {
       attempts += 1;
@@ -130,17 +122,10 @@ describe('Cold-start Axios interceptor & wakeServerDirect', () => {
 
     const promise = apiClient.get('/dishes');
 
-    // Error happens immediately; wake slot should be claimed during retry wait
     await vi.advanceTimersByTimeAsync(100);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledWith('https://backend.onrender.com/healthz', {
-      mode: 'no-cors',
-      cache: 'no-store',
-    });
     expect(useServerWakeStore.getState().isServerWaking).toBe(true);
 
-    // Advance past 6.5s retry delay
-    await vi.advanceTimersByTimeAsync(6500);
+    await vi.advanceTimersByTimeAsync(4000);
     const res = await promise;
 
     expect(res.status).toBe(200);
@@ -149,7 +134,7 @@ describe('Cold-start Axios interceptor & wakeServerDirect', () => {
     expect(useServerWakeStore.getState().isServerWaking).toBe(false);
   });
 
-  it('retries 503 up to 9 times and resets wake state when exhausted', async () => {
+  it('retries 503 up to 3 times and resets wake state when exhausted', async () => {
     const adapter = vi.fn(async (config) => {
       throw makeAxiosError(config, 503, { 'content-type': 'text/plain' }, 'Service Unavailable');
     });
@@ -158,17 +143,17 @@ describe('Cold-start Axios interceptor & wakeServerDirect', () => {
     const promise = apiClient.get('/dishes');
     const rejectionExpectation = expect(promise).rejects.toThrow();
 
-    // 9 retries * 6500ms = 58500ms
-    await vi.advanceTimersByTimeAsync(9 * 6500 + 100);
+    // 3 retries * 4000ms = 12000ms
+    await vi.advanceTimersByTimeAsync(3 * 4000 + 100);
     await rejectionExpectation;
 
-    // 1 initial attempt + 9 retries = 10 calls
-    expect(adapter).toHaveBeenCalledTimes(10);
+    // 1 initial attempt + 3 retries = 4 calls
+    expect(adapter).toHaveBeenCalledTimes(4);
     expect(useServerWakeStore.getState().slowRequestCount).toBe(0);
     expect(useServerWakeStore.getState().isServerWaking).toBe(false);
   });
 
-  it('retries 429 on GET and recovers, but does not retry 429 on POST', async () => {
+  it('retries 429 on GET respecting Retry-After, but does not retry 429 on POST', async () => {
     let getAttempts = 0;
     const adapter = vi.fn(async (config) => {
       if (config.method === 'post') {
@@ -193,7 +178,7 @@ describe('Cold-start Axios interceptor & wakeServerDirect', () => {
     expect(adapter).toHaveBeenCalledTimes(3);
   });
 
-  it('retries Cloudflare 521 origin errors with direct /healthz wake-up', async () => {
+  it('retries Cloudflare 521 origin errors and recovers', async () => {
     let attempts = 0;
     const adapter = vi.fn(async (config) => {
       attempts += 1;
@@ -205,28 +190,10 @@ describe('Cold-start Axios interceptor & wakeServerDirect', () => {
     apiClient.defaults.adapter = adapter;
 
     const promise = apiClient.get('/Auth/me');
-    await vi.advanceTimersByTimeAsync(6600);
+    await vi.advanceTimersByTimeAsync(4100);
     const res = await promise;
 
     expect(res.status).toBe(200);
     expect(attempts).toBe(2);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
-  it('deduplicates concurrent wakeServerDirect calls (single-flight)', async () => {
-    let resolveFetch;
-    fetchMock.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          resolveFetch = () => resolve({ ok: true });
-        })
-    );
-
-    const p1 = wakeServerDirect();
-    const p2 = wakeServerDirect();
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    resolveFetch();
-    await Promise.all([p1, p2]);
   });
 });
