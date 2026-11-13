@@ -4,7 +4,7 @@ import useServerWakeStore from '../store/useServerWakeStore';
 import { wakeServerDirect } from '../utils/serverWake';
 
 const SLOW_REQUEST_THRESHOLD_MS = 3000;
-const MAX_COLD_START_RETRIES = 6;
+const MAX_COLD_START_RETRIES = 9;
 const COLD_START_RETRY_DELAY_MS = 6500;
 const IDEMPOTENT_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -59,25 +59,42 @@ const isColdStartRetryableError = (error) => {
 
   const status = error.response?.status;
   const contentType = getContentType(error.response?.headers).toLowerCase();
+  const method = String(config.method || 'GET').toUpperCase();
+  const isIdempotent = IDEMPOTENT_METHODS.has(method);
 
   // Cloudflare Managed Challenge while Render is sleeping returns 403 text/html.
-  // Real backend API 403s return application/problem+json and must not retry.
+  // Real backend API 403s return application/problem+json (or application/json) and must not retry.
   if (status === 403) {
-    return contentType.includes('text/html');
+    return (
+      !contentType.includes('application/problem+json') &&
+      !contentType.includes('application/json')
+    );
   }
 
-  // Gateway boot errors happen before the backend processes the request.
-  if (status === 502 || status === 503) {
+  // Gateway / Cloudflare origin boot errors happen before the backend processes the request.
+  if (status === 502 || status === 503 || (status >= 520 && status <= 530)) {
     return true;
   }
 
-  // Timeouts (504 / client timeout) or network drops only retry for idempotent methods.
-  if (!error.response || status === 504) {
-    const method = String(config.method || 'GET').toUpperCase();
-    return IDEMPOTENT_METHODS.has(method);
+  // Rate limits (429), timeouts (504 / client timeout), or network drops only retry for idempotent methods.
+  if (!error.response || status === 429 || status === 504) {
+    return isIdempotent;
   }
 
   return false;
+};
+
+const getRetryDelayMs = (error) => {
+  const headers = error?.response?.headers;
+  const retryAfterRaw =
+    typeof headers?.get === 'function'
+      ? headers.get('retry-after')
+      : headers?.['retry-after'] || headers?.['Retry-After'];
+  const retryAfterSec = Number(retryAfterRaw);
+  if (Number.isFinite(retryAfterSec) && retryAfterSec > 0) {
+    return Math.min(Math.max(retryAfterSec * 1000, 1000), 15000);
+  }
+  return COLD_START_RETRY_DELAY_MS;
 };
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -121,7 +138,7 @@ apiClient.interceptors.response.use(
       // Keep the wake banner visible across fast-failing (<3s) retry cycles.
       claimWakeSlot(config);
 
-      await Promise.all([wakeServerDirect(), sleep(COLD_START_RETRY_DELAY_MS)]);
+      await Promise.all([wakeServerDirect(), sleep(getRetryDelayMs(error))]);
       return apiClient(config);
     }
 

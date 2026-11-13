@@ -149,7 +149,7 @@ describe('Cold-start Axios interceptor & wakeServerDirect', () => {
     expect(useServerWakeStore.getState().isServerWaking).toBe(false);
   });
 
-  it('retries 503 up to 6 times and resets wake state when exhausted', async () => {
+  it('retries 503 up to 9 times and resets wake state when exhausted', async () => {
     const adapter = vi.fn(async (config) => {
       throw makeAxiosError(config, 503, { 'content-type': 'text/plain' }, 'Service Unavailable');
     });
@@ -158,14 +158,59 @@ describe('Cold-start Axios interceptor & wakeServerDirect', () => {
     const promise = apiClient.get('/dishes');
     const rejectionExpectation = expect(promise).rejects.toThrow();
 
-    // 6 retries * 6500ms = 39000ms
-    await vi.advanceTimersByTimeAsync(6 * 6500 + 100);
+    // 9 retries * 6500ms = 58500ms
+    await vi.advanceTimersByTimeAsync(9 * 6500 + 100);
     await rejectionExpectation;
 
-    // 1 initial attempt + 6 retries = 7 calls
-    expect(adapter).toHaveBeenCalledTimes(7);
+    // 1 initial attempt + 9 retries = 10 calls
+    expect(adapter).toHaveBeenCalledTimes(10);
     expect(useServerWakeStore.getState().slowRequestCount).toBe(0);
     expect(useServerWakeStore.getState().isServerWaking).toBe(false);
+  });
+
+  it('retries 429 on GET and recovers, but does not retry 429 on POST', async () => {
+    let getAttempts = 0;
+    const adapter = vi.fn(async (config) => {
+      if (config.method === 'post') {
+        throw makeAxiosError(config, 429, { 'content-type': 'application/json' }, 'Too Many Requests');
+      }
+      getAttempts += 1;
+      if (getAttempts === 1) {
+        throw makeAxiosError(config, 429, { 'retry-after': '2' }, 'Too Many Requests');
+      }
+      return makeAxiosResponse(config, 200, { user: 'ok' });
+    });
+    apiClient.defaults.adapter = adapter;
+
+    const getPromise = apiClient.get('/Auth/me');
+    await vi.advanceTimersByTimeAsync(2100);
+    const getRes = await getPromise;
+
+    expect(getRes.status).toBe(200);
+    expect(getAttempts).toBe(2);
+
+    await expect(apiClient.post('/Auth/login', {})).rejects.toThrow();
+    expect(adapter).toHaveBeenCalledTimes(3);
+  });
+
+  it('retries Cloudflare 521 origin errors with direct /healthz wake-up', async () => {
+    let attempts = 0;
+    const adapter = vi.fn(async (config) => {
+      attempts += 1;
+      if (attempts === 1) {
+        throw makeAxiosError(config, 521, {}, 'Web server is down');
+      }
+      return makeAxiosResponse(config, 200, { ok: true });
+    });
+    apiClient.defaults.adapter = adapter;
+
+    const promise = apiClient.get('/Auth/me');
+    await vi.advanceTimersByTimeAsync(6600);
+    const res = await promise;
+
+    expect(res.status).toBe(200);
+    expect(attempts).toBe(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('deduplicates concurrent wakeServerDirect calls (single-flight)', async () => {
