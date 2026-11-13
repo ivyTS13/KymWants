@@ -1,5 +1,12 @@
 import axios from 'axios';
 import { PATHS } from '../router/paths';
+import useServerWakeStore from '../store/useServerWakeStore';
+import { wakeServerDirect } from '../utils/serverWake';
+
+const SLOW_REQUEST_THRESHOLD_MS = 3000;
+const MAX_COLD_START_RETRIES = 6;
+const COLD_START_RETRY_DELAY_MS = 6500;
+const IDEMPOTENT_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 let onUnauthorizedCallback = null;
 
@@ -10,6 +17,71 @@ export const registerUnauthorizedHandler = (callback) => {
   onUnauthorizedCallback = callback;
 };
 
+const clearWakeTimer = (config) => {
+  if (config?._wakeTimer) {
+    clearTimeout(config._wakeTimer);
+    config._wakeTimer = null;
+  }
+};
+
+const claimWakeSlot = (config) => {
+  if (config && !config._wakeIncremented) {
+    config._wakeIncremented = true;
+    useServerWakeStore.getState().incrementSlowRequests();
+  }
+};
+
+const releaseWakeSlot = (config) => {
+  clearWakeTimer(config);
+  if (config?._wakeIncremented) {
+    config._wakeIncremented = false;
+    useServerWakeStore.getState().decrementSlowRequests();
+  }
+};
+
+const getContentType = (headers) => {
+  if (!headers) return '';
+  if (typeof headers.get === 'function') {
+    return String(headers.get('content-type') || '');
+  }
+  return String(headers['content-type'] || headers['Content-Type'] || '');
+};
+
+const isColdStartRetryableError = (error) => {
+  const config = error?.config;
+  if (!config || axios.isCancel(error) || error.code === 'ERR_CANCELED') {
+    return false;
+  }
+
+  if ((config._retryCount ?? 0) >= MAX_COLD_START_RETRIES) {
+    return false;
+  }
+
+  const status = error.response?.status;
+  const contentType = getContentType(error.response?.headers).toLowerCase();
+
+  // Cloudflare Managed Challenge while Render is sleeping returns 403 text/html.
+  // Real backend API 403s return application/problem+json and must not retry.
+  if (status === 403) {
+    return contentType.includes('text/html');
+  }
+
+  // Gateway boot errors happen before the backend processes the request.
+  if (status === 502 || status === 503) {
+    return true;
+  }
+
+  // Timeouts (504 / client timeout) or network drops only retry for idempotent methods.
+  if (!error.response || status === 504) {
+    const method = String(config.method || 'GET').toUpperCase();
+    return IDEMPOTENT_METHODS.has(method);
+  }
+
+  return false;
+};
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 // 1. Create a configured Axios instance
 const baseURL = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/api`
@@ -18,15 +90,45 @@ const baseURL = import.meta.env.VITE_API_URL
 const apiClient = axios.create({
   baseURL,
   withCredentials: true,
+  timeout: 20000,
   headers: { 'Content-Type': 'application/json' },
 });
 
-// 2. Response Interceptor for Global Error Handling
+// 2. Request Interceptor: mark requests slower than 3s as waking the server
+apiClient.interceptors.request.use((config) => {
+  clearWakeTimer(config);
+  if (!config._wakeIncremented) {
+    config._wakeTimer = setTimeout(() => {
+      config._wakeTimer = null;
+      claimWakeSlot(config);
+    }, SLOW_REQUEST_THRESHOLD_MS);
+  }
+  return config;
+});
+
+// 3. Response Interceptor for Cold-Start Retries & Global Error Handling
 apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
+  (response) => {
+    releaseWakeSlot(response.config);
+    return response;
+  },
+  async (error) => {
+    const config = error?.config;
+    clearWakeTimer(config);
+
+    if (isColdStartRetryableError(error)) {
+      config._retryCount = (config._retryCount ?? 0) + 1;
+      // Keep the wake banner visible across fast-failing (<3s) retry cycles.
+      claimWakeSlot(config);
+
+      await Promise.all([wakeServerDirect(), sleep(COLD_START_RETRY_DELAY_MS)]);
+      return apiClient(config);
+    }
+
+    releaseWakeSlot(config);
+
     const status = error.response?.status;
-    const requestUrl = error.config?.url;
+    const requestUrl = config?.url;
 
     if (status === 401) {
       if (requestUrl && !requestUrl.includes('/Auth/me')) {
